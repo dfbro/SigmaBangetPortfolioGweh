@@ -6,16 +6,14 @@ import { Button } from "@/components/ui/button"
 
 export function ThemeToggle() {
   const [theme, setTheme] = React.useState<"light" | "dark">("dark")
+  const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
+    setMounted(true)
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null
-    if (savedTheme) {
-      setTheme(savedTheme)
-      document.documentElement.classList.toggle("dark", savedTheme === "dark")
-    } else {
-      // Default to dark for the hacker aesthetic
-      document.documentElement.classList.add("dark")
-    }
+    const initialTheme = savedTheme || "dark"
+    setTheme(initialTheme)
+    document.documentElement.classList.toggle("dark", initialTheme === "dark")
   }, [])
 
   const toggleTheme = () => {
@@ -23,6 +21,15 @@ export function ThemeToggle() {
     setTheme(newTheme)
     localStorage.setItem("theme", newTheme)
     document.documentElement.classList.toggle("dark", newTheme === "dark")
+  }
+
+  // Avoid hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return (
+      <Button variant="ghost" size="icon" className="w-10 h-10">
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    )
   }
 
   return (

@@ -4,6 +4,33 @@
 
 @layer base {
   :root {
+    /* Light Mode */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 199 89% 48%;
+    --secondary-foreground: 240 10% 3.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 45 100% 45%;
+    --accent-foreground: 240 10% 3.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 142 76% 36%;
+    --radius: 0.5rem;
+    --bg-gradient-start: #f8fafc;
+    --bg-gradient-end: #e2e8f0;
+  }
+
+  .dark {
+    /* Dark Mode (Hacker Theme) */
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 6%;
@@ -23,29 +50,8 @@
     --border: 240 5.9% 18%;
     --input: 240 5.9% 18%;
     --ring: 142 76% 56%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 6%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 100 95% 50%;
-    --primary-foreground: 100 15% 7%;
-    --secondary: 170 80% 56%;
-    --secondary-foreground: 100 15% 7%;
-    --muted: 100 15% 15%;
-    --muted-foreground: 100 10% 70%;
-    --accent: 45 100% 60%;
-    --accent-foreground: 100 15% 7%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 18%;
-    --input: 240 5.9% 18%;
-    --ring: 100 95% 50%;
+    --bg-gradient-start: #1a1a1e;
+    --bg-gradient-end: #0a0a0c;
   }
 }
 
@@ -55,7 +61,7 @@
   }
   body {
     @apply text-foreground font-body transition-colors duration-300 antialiased;
-    background: radial-gradient(circle at 50% 50%, #1a1a1e 0%, #0a0a0c 100%);
+    background: radial-gradient(circle at 50% 50%, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
     min-height: 100vh;
   }
   h1, h2, h3, h4, h5, h6 {
