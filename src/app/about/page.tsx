@@ -8,11 +8,14 @@ import awd from "./awd.png";
 import Image from "next/image"
 
 const skills = [
-  { name: "Web Application Security", level: 90 },
-  { name: "Network Penetration Testing", level: 85 },
+  { name: "Web Application Security", level: 65 },
+  { name: "Network Penetration Testing", level: 60 },
   { name: "Binary Exploitation", level: 70 },
   { name: "Incident Response", level: 65 },
-  { name: "Cloud Security (AWS/Azure)", level: 75 }
+  { name: "Reverse Engineering", level: 70 },
+  { name: "Digital Forensic", level: 80 },
+  { name: "Programming", level: 67 },
+  { name: "Public Speaking", level: 70 }
 ]
 
 export default function AboutPage() {
@@ -53,8 +56,17 @@ export default function AboutPage() {
               <div className="flex gap-4">
                 <GraduationCap className="h-5 w-5 text-primary shrink-0" />
                 <div>
-                  <p className="text-sm font-bold">B.Sc Computer Science</p>
-                  <p className="text-xs text-muted-foreground">Tech University, 2022</p>
+                  <p className="text-sm font-bold">Junior High School</p>
+                  <p className="text-xs text-muted-foreground">SMPN 11 Malang, 2022 - 2025</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <GraduationCap className="h-5 w-5 text-primary shrink-0" />
+                <div>
+                  <p className="text-sm font-bold">Vocational High School</p>
+                  <p className="text-xs text-muted-foreground">SMK Telkom Malang, 2025 - Now</p>
                 </div>
               </div>
             </div>
@@ -102,16 +114,28 @@ export default function AboutPage() {
             <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
               {[
                 {
-                  role: "Security Researcher",
-                  company: "CyberNodes Inc",
-                  period: "2023 - Present",
-                  desc: "Conducting deep-dive penetration tests on financial infrastructure."
+                  role: "Early Interest in Technology",
+                  company: "Junior High School",
+                  period: "2024",
+                  desc: "I started my journey with a strong curiosity about computers and how digital systems work. This curiosity led me to explore programming and technology more deeply."
                 },
                 {
-                  role: "Junior Security Consultant",
-                  company: "DefendIT",
-                  period: "2022 - 2023",
-                  desc: "Assisted in vulnerability management and remediation tracking."
+                  role: "Discovering Cybersecurity & CTF",
+                  company: "Vocational High School",
+                  period: "2025",
+                  desc: "I later discovered cybersecurity through Capture The Flag (CTF) challenges, where I developed skills in problem solving, digital forensics, and security analysis."
+                },
+                {
+                  role: "Building Technical Skills",
+                  company: "Vocational High School",
+                  period: "2025 - Now",
+                  desc: "Alongside cybersecurity, I continue improving my programming and software development skills by working on projects and experimenting with new technologies."
+                },
+                {
+                  role: "Future Goals",
+                  company: "Vocational High School",
+                  period: "Now - Future",
+                  desc: "My goal is to grow as a professional in cybersecurity and software development while continuing to learn, build, and participate in technical challenges."
                 }
               ].map((job, idx) => (
                 <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
@@ -139,8 +163,7 @@ export default function AboutPage() {
               Philosophy
             </h3>
             <p className="text-sm text-muted-foreground italic">
-              "To protect the light, we must master the darkness. Cybersecurity isn't just a career; 
-              it's a constant pursuit of understanding how systems fail, so we can make them succeed."
+              "Sorry, Wish We Could Go To The Moon Together." -D. M.
             </p>
           </div>
         </div>
