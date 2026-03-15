@@ -126,23 +126,49 @@ export default function SecureInboxPage() {
   }
 
   const handleDelete = (id: string | null | undefined) => {
-    if (!id) return;
+    if (!id || !db) return;
     
     const confirmMsg = "Are you sure you want to delete this record? This action cannot be undone."
     if (typeof window !== "undefined" && window.confirm(confirmMsg)) {
-      const docRef = doc(db, "ctfWriteups", id)
-      deleteDocumentNonBlocking(docRef)
-      
-      toast({ 
-        title: "Record Deleted", 
-        description: "Signal purged from database." 
-      })
+      try {
+        const docRef = doc(db, "ctfWriteups", id)
+        deleteDocumentNonBlocking(docRef)
+        
+        toast({ 
+          title: "Record Deleted", 
+          description: "Signal purged from database." 
+        })
 
-      if (editingId === id) {
-        setIsEditing(false)
-        setEditingId(null)
+        // Jika data yang sedang diedit adalah yang dihapus, tutup editor
+        if (editingId === id) {
+          setIsEditing(false)
+          setEditingId(null)
+          resetForm()
+        }
+      } catch (error) {
+        console.error("Error creating doc ref for delete:", error)
       }
     }
+  }
+
+  const resetForm = () => {
+    setWriteupForm({
+      title: "",
+      competition: "",
+      category: "Web",
+      difficulty: "Medium",
+      date: format(new Date(), 'yyyy-MM-dd'),
+      summary: "",
+      content: "",
+      flag: "",
+      tags: ""
+    })
+  }
+
+  const handleNewEntry = () => {
+    resetForm()
+    setEditingId(null)
+    setIsEditing(true)
   }
 
   if (!isAuthenticated) {
@@ -266,7 +292,7 @@ export default function SecureInboxPage() {
                 <h2 className="text-xl font-headline font-bold flex items-center">
                   <Database className="h-5 w-5 mr-2 text-primary" /> Records
                 </h2>
-                <Button size="sm" onClick={() => { setIsEditing(true); setEditingId(null); setWriteupForm({ title: "", competition: "", category: "Web", difficulty: "Medium", date: format(new Date(), 'yyyy-MM-dd'), summary: "", content: "", flag: "", tags: "" }); }} className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30">
+                <Button size="sm" onClick={handleNewEntry} className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30">
                   <Plus className="h-4 w-4 mr-1" /> New Entry
                 </Button>
               </div>
@@ -320,7 +346,7 @@ export default function SecureInboxPage() {
                           <Trash2 className="h-4 w-4 mr-1" /> Delete
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} className="flex-1 sm:flex-none">
+                      <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setEditingId(null); }} className="flex-1 sm:flex-none">
                         <X className="h-4 w-4 mr-1" /> Cancel
                       </Button>
                       <Button size="sm" className="bg-primary text-primary-foreground flex-1 sm:flex-none" onClick={handleSaveWriteup}>
@@ -428,7 +454,7 @@ export default function SecureInboxPage() {
                     <h3 className="text-xl font-headline font-bold">Write-up Repository Manager</h3>
                     <p className="text-sm text-muted-foreground">Select a record to edit or create a new one to broadcast.</p>
                   </div>
-                  <Button onClick={() => setIsEditing(true)} className="bg-primary text-primary-foreground font-bold">
+                  <Button onClick={handleNewEntry} className="bg-primary text-primary-foreground font-bold">
                     <Plus className="h-4 w-4 mr-2" /> CREATE NEW SIGNAL
                   </Button>
                 </div>
