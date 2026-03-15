@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "SecureMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SecureMessage",
+      "type": "object",
+      "description": "Represents a piece of secure content or output to be displayed on a restricted page, typically visible only after successful authentication.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SecureMessage entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "A brief title or heading for the secure message content."
+        },
+        "content": {
+          "type": "string",
+          "description": "The main body of the secure message or output, which can contain rich text or structured data."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the secure message was originally created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the secure message was last updated.",
+          "format": "date-time"
+        },
+        "displayOrder": {
+          "type": "number",
+          "description": "An integer value to define the display order of this message relative to other secure messages on the page."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "content",
+        "createdAt"
+      ]
+    },
+    "SecurePageAccessLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SecurePageAccessLog",
+      "type": "object",
+      "description": "Records attempts to access the secure messaging output page, including details about the accessor and the outcome.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SecurePageAccessLog entity."
+        },
+        "accessedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the access attempt occurred.",
+          "format": "date-time"
+        },
+        "username": {
+          "type": "string",
+          "description": "The username provided during the access attempt. This is primarily for logging and tracking who attempted to access the page."
+        },
+        "accessSuccessful": {
+          "type": "boolean",
+          "description": "Indicates whether the access attempt was successful (e.g., correct password provided and authenticated)."
+        },
+        "ipAddress": {
+          "type": "string",
+          "description": "The IP address from which the access attempt originated (can be IPv4 or IPv6)."
+        }
+      },
+      "required": [
+        "id",
+        "accessedAt",
+        "username",
+        "accessSuccessful"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{ownerId}/secureMessages/{messageId}",
+        "definition": {
+          "entityName": "SecureMessage",
+          "schema": {
+            "$ref": "#/backend/entities/SecureMessage"
+          },
+          "description": "Collection for secure messages created and managed by the portfolio owner. Access to the content by visitors is gated by an application-level password handled by a Cloud Function. Includes denormalized 'ownerId' for authorization independence in rules.",
+          "params": [
+            {
+              "name": "ownerId",
+              "description": "The unique Firebase UID of the portfolio owner."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier for a specific SecureMessage document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/securePageAccessLogs/{logId}",
+        "definition": {
+          "entityName": "SecurePageAccessLog",
+          "schema": {
+            "$ref": "#/backend/entities/SecurePageAccessLog"
+          },
+          "description": "Collection storing logs of access attempts to the secure page. Log entries are typically created by a trusted Cloud Function, which also manages the 'accessSuccessful' and 'ipAddress' fields. Includes denormalized 'portfolioOwnerId' for authorization independence, allowing only the designated portfolio owner to read these logs directly or via a Cloud Function.",
+          "params": [
+            {
+              "name": "logId",
+              "description": "The unique identifier for a specific access log entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure for the secure messaging feature emphasizes security, scalability, and debuggability by strictly adhering to the core design principles. The primary challenge, 'password-based access', is addressed by implementing an application-level security layer (a Cloud Function) that acts as a gatekeeper, thereby allowing Firestore security rules to remain simple and `request.auth.uid`-dependent. \n\n**Authorization Independence via Denormalization:**\n*   **Secure Messages (`/users/{ownerId}/secureMessages/{messageId}`):** Each `SecureMessage` document will explicitly include an `ownerId` field. This `ownerId` will match the `{ownerId}` wildcard in the path, making authorization rules atomic (e.g., `allow read, write: if request.auth.uid == resource.data.ownerId;`). This eliminates the need for `get()` calls in security rules, ensuring atomic operations and simplifying debugging.\n*   **Secure Page Access Logs (`/securePageAccessLogs/{logId}`):** Each `SecurePageAccessLog` document will include a `portfolioOwnerId` field. This denormalized field links the log entry to the specific portfolio owner, enabling straightforward security rules (e.g., `allow read: if request.auth.uid == resource.data.portfolioOwnerId;`). Again, no `get()` calls are needed to determine ownership for authorization.\n\n**QAPs (Rules are not Filters) and Segregation for Secure List Operations:**\n*   **Secure Messages:** The `secureMessages` collection is structured hierarchically under `/users/{ownerId}/`. This segregation ensures that all documents within a given `ownerId`'s `secureMessages` subcollection share the same security posture (owner-only CRUD). When the portfolio owner authenticates via Firebase (`request.auth.uid`), they can securely `list` their own messages without filtering by a password in the rules. For visitors, the Cloud Function handles the 'password' verification and then fetches the specific messages, returning them to the client. The client never directly performs a `list` on this collection via Firestore for password-gated access.\n*   **Secure Page Access Logs:** The `securePageAccessLogs` collection is a top-level collection, but each document contains `portfolioOwnerId`. This ensures homogeneous security posture within the collection, where all logs are viewable only by their respective `portfolioOwnerId`. The `list` operation for logs by the portfolio owner is therefore secure. Similarly, visitors accessing logs (via the secure page) do so through the Cloud Function, which fetches the relevant logs, maintaining QAP compliance for direct Firestore access.\n\nThis design ensures that Firestore rules are concise, robust, and explicitly tied to `request.auth.uid` for content management and log viewing by the portfolio owner, while leveraging a Cloud Function to handle the application-level 'password' authentication for visitors, securely serving the data without compromising Firestore's direct security posture."
+  }
+}
