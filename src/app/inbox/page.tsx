@@ -5,14 +5,17 @@ import * as React from "react"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, orderBy, doc } from "firebase/firestore"
 import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates"
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Terminal, Lock, MessageSquare, History, User, Plus, Trash2, Save, X, Database, Key, Loader2, AlertCircle } from "lucide-react"
+import { 
+  Terminal, Lock, MessageSquare, History, User, Plus, Trash2, 
+  Save, X, Database, Key, Loader2, AlertCircle, Cpu, Award, Image as ImageIcon, Link as LinkIcon 
+} from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { format } from "date-fns"
@@ -37,23 +40,26 @@ export default function SecureInboxPage() {
   const [activeTab, setActiveTab] = React.useState("messages")
   const db = useFirestore()
 
-  // Deletion State
+  // General Deletion State
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
-  const [idToDelete, setIdToDelete] = React.useState<string | null>(null)
+  const [itemToDelete, setItemToDelete] = React.useState<{id: string, collection: string} | null>(null)
 
-  // Write-up Form State
-  const [isEditing, setIsEditing] = React.useState(false)
+  // Form Editing State
+  const [editMode, setEditMode] = React.useState<"writeup" | "project" | "achievement" | null>(null)
   const [editingId, setEditingId] = React.useState<string | null>(null)
+  const [imageSource, setImageSource] = React.useState<"url" | "upload">("url")
+
   const [writeupForm, setWriteupForm] = React.useState({
-    title: "",
-    competition: "",
-    category: "Web",
-    difficulty: "Medium",
-    date: format(new Date(), 'yyyy-MM-dd'),
-    summary: "",
-    content: "",
-    flag: "",
-    tags: ""
+    title: "", competition: "", category: "Web", difficulty: "Medium",
+    date: format(new Date(), 'yyyy-MM-dd'), summary: "", content: "", flag: "", tags: ""
+  })
+
+  const [projectForm, setProjectForm] = React.useState({
+    title: "", description: "", imageUrl: "", category: "Security Tooling", tags: ""
+  })
+
+  const [achievementForm, setAchievementForm] = React.useState({
+    title: "", issuer: "", platform: "", description: "", imageUrl: "", date: format(new Date(), 'yyyy-MM-dd')
   })
 
   const SYSTEM_PASSWORD = "admin123"
@@ -69,122 +75,67 @@ export default function SecureInboxPage() {
         accessSuccessful: true,
       })
     } else {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "Invalid credentials signal."
-      })
+      toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials signal." })
     }
   }
 
-  const messagesQuery = useMemoFirebase(() => {
-    return query(collection(db, "users", "admin", "secureMessages"), orderBy("createdAt", "desc"))
-  }, [db])
-
-  const logsQuery = useMemoFirebase(() => {
-    return query(collection(db, "securePageAccessLogs"), orderBy("accessedAt", "desc"))
-  }, [db])
-
-  const writeupsQuery = useMemoFirebase(() => {
-    return query(collection(db, "ctfWriteups"), orderBy("createdAt", "desc"))
-  }, [db])
+  // Queries
+  const messagesQuery = useMemoFirebase(() => query(collection(db, "users", "admin", "secureMessages"), orderBy("createdAt", "desc")), [db])
+  const logsQuery = useMemoFirebase(() => query(collection(db, "securePageAccessLogs"), orderBy("accessedAt", "desc")), [db])
+  const writeupsQuery = useMemoFirebase(() => query(collection(db, "ctfWriteups"), orderBy("createdAt", "desc")), [db])
+  const projectsQuery = useMemoFirebase(() => query(collection(db, "projects"), orderBy("createdAt", "desc")), [db])
+  const achievementsQuery = useMemoFirebase(() => query(collection(db, "achievements"), orderBy("createdAt", "desc")), [db])
 
   const { data: messages, isLoading: messagesLoading } = useCollection(isAuthenticated ? messagesQuery : null)
   const { data: logs, isLoading: logsLoading } = useCollection(isAuthenticated ? logsQuery : null)
   const { data: writeups, isLoading: writeupsLoading } = useCollection(isAuthenticated ? writeupsQuery : null)
+  const { data: projects, isLoading: projectsLoading } = useCollection(isAuthenticated ? projectsQuery : null)
+  const { data: achievements, isLoading: achievementsLoading } = useCollection(isAuthenticated ? achievementsQuery : null)
 
-  const resetForm = () => {
-    setWriteupForm({
-      title: "",
-      competition: "",
-      category: "Web",
-      difficulty: "Medium",
-      date: format(new Date(), 'yyyy-MM-dd'),
-      summary: "",
-      content: "",
-      flag: "",
-      tags: ""
-    })
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setter(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
-  const handleSaveWriteup = () => {
-    if (!writeupForm.title || !writeupForm.content) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Title and Content are required."
-      })
-      return
-    }
-
-    const data = {
-      ...writeupForm,
-      tags: writeupForm.tags.split(',').map(t => t.trim()).filter(Boolean),
-      createdAt: new Date().toISOString(),
-    }
-
-    if (editingId) {
-      const docRef = doc(db, "ctfWriteups", editingId)
-      updateDocumentNonBlocking(docRef, data)
-      toast({ title: "Write-up Updated", description: "Signal updated successfully." })
-    } else {
-      const colRef = collection(db, "ctfWriteups")
-      addDocumentNonBlocking(colRef, data)
-      toast({ title: "Write-up Created", description: "New signal broadcasted." })
-    }
-
-    setIsEditing(false)
-    setEditingId(null)
-    resetForm()
+  const saveWriteup = () => {
+    const data = { ...writeupForm, tags: writeupForm.tags.split(',').map(t => t.trim()).filter(Boolean), createdAt: new Date().toISOString() }
+    if (editingId) updateDocumentNonBlocking(doc(db, "ctfWriteups", editingId), data)
+    else addDocumentNonBlocking(collection(db, "ctfWriteups"), data)
+    toast({ title: "Write-up Saved" }); setEditMode(null); setEditingId(null);
   }
 
-  const handleEdit = (w: any) => {
-    setWriteupForm({
-      title: w.title || "",
-      competition: w.competition || "",
-      category: w.category || "Web",
-      difficulty: w.difficulty || "Medium",
-      date: w.date || format(new Date(), 'yyyy-MM-dd'),
-      summary: w.summary || "",
-      content: w.content || "",
-      flag: w.flag || "",
-      tags: (w.tags || []).join(', ')
-    })
-    setEditingId(w.id)
-    setIsEditing(true)
+  const saveProject = () => {
+    const data = { ...projectForm, tags: projectForm.tags.split(',').map(t => t.trim()).filter(Boolean), createdAt: new Date().toISOString() }
+    if (editingId) updateDocumentNonBlocking(doc(db, "projects", editingId), data)
+    else addDocumentNonBlocking(collection(db, "projects"), data)
+    toast({ title: "Project Saved" }); setEditMode(null); setEditingId(null);
   }
 
-  const triggerDelete = (id: string | null | undefined) => {
-    if (!id) return
-    setIdToDelete(id)
+  const saveAchievement = () => {
+    const data = { ...achievementForm, createdAt: new Date().toISOString() }
+    if (editingId) updateDocumentNonBlocking(doc(db, "achievements", editingId), data)
+    else addDocumentNonBlocking(collection(db, "achievements"), data)
+    toast({ title: "Achievement Saved" }); setEditMode(null); setEditingId(null);
+  }
+
+  const triggerDelete = (id: string, coll: string) => {
+    setItemToDelete({ id, collection: coll })
     setDeleteDialogOpen(true)
   }
 
   const confirmDelete = () => {
-    if (!idToDelete || !db) return
-
-    const docRef = doc(db, "ctfWriteups", idToDelete)
-    deleteDocumentNonBlocking(docRef)
-    
-    toast({ 
-      title: "Record Purged", 
-      description: "Data successfully removed from Firestore nodes." 
-    })
-
-    if (editingId === idToDelete) {
-      setIsEditing(false)
-      setEditingId(null)
-      resetForm()
-    }
-
+    if (!itemToDelete) return
+    deleteDocumentNonBlocking(doc(db, itemToDelete.collection, itemToDelete.id))
+    toast({ title: "Record Purged" })
     setDeleteDialogOpen(false)
-    setIdToDelete(null)
-  }
-
-  const handleNewEntry = () => {
-    resetForm()
-    setEditingId(null)
-    setIsEditing(true)
+    setItemToDelete(null)
+    if (editingId === itemToDelete.id) { setEditMode(null); setEditingId(null); }
   }
 
   if (!isAuthenticated) {
@@ -194,38 +145,21 @@ export default function SecureInboxPage() {
           <GlowingEffect spread={40} glow={true} disabled={false} />
           <Card className="relative bg-card border-none">
             <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Lock className="h-6 w-6 text-primary" />
-              </div>
+              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4"><Lock className="h-6 w-6 text-primary" /></div>
               <CardTitle className="font-headline font-bold text-2xl">Secure Entry</CardTitle>
-              <p className="text-sm text-muted-foreground font-code">Authentication Required to Access Nodes</p>
+              <p className="text-sm text-muted-foreground font-code">Authentication Required</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-code uppercase text-muted-foreground">Identifier</Label>
-                  <Input 
-                    placeholder="Enter Username" 
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    className="bg-muted/50"
-                  />
+                  <Label className="text-[10px] font-code uppercase">Identifier</Label>
+                  <Input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-code uppercase text-muted-foreground">Security Key</Label>
-                  <Input 
-                    type="password" 
-                    placeholder="Enter Password" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="bg-muted/50"
-                  />
+                  <Label className="text-[10px] font-code uppercase">Security Key</Label>
+                  <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
-                <Button type="submit" className="w-full bg-primary font-bold text-primary-foreground">
-                  AUTHORIZE ACCESS
-                </Button>
+                <Button type="submit" className="w-full bg-primary font-bold">AUTHORIZE ACCESS</Button>
               </form>
             </CardContent>
           </Card>
@@ -236,299 +170,218 @@ export default function SecureInboxPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2 text-primary">
-            <Terminal className="h-5 w-5" />
-            <span className="font-code text-sm font-bold uppercase tracking-widest">Command Center</span>
-          </div>
-          <h1 className="text-3xl font-headline font-bold">Administrator Interface</h1>
-        </div>
-        <div className="px-4 py-2 bg-muted rounded border border-border flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs font-code uppercase text-muted-foreground">User: {username}</span>
-        </div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-headline font-bold">Command Center</h1>
+        <div className="px-3 py-1 bg-muted rounded border text-xs font-code uppercase">User: {username}</div>
       </div>
 
-      <Tabs defaultValue="messages" value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue="messages" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-muted border border-border p-1 h-auto mb-8 flex flex-wrap justify-start">
-          <TabsTrigger value="messages" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-headline px-6 py-2">
-            <MessageSquare className="h-4 w-4 mr-2" /> Transmissions
-          </TabsTrigger>
-          <TabsTrigger value="writeups" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-headline px-6 py-2">
-            <Database className="h-4 w-4 mr-2" /> Write-up Manager
-          </TabsTrigger>
-          <TabsTrigger value="logs" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-headline px-6 py-2">
-            <History className="h-4 w-4 mr-2" /> Access Logs
-          </TabsTrigger>
+          <TabsTrigger value="messages" className="px-6 py-2"><MessageSquare className="h-4 w-4 mr-2" /> Messages</TabsTrigger>
+          <TabsTrigger value="writeups" className="px-6 py-2"><Database className="h-4 w-4 mr-2" /> Write-ups</TabsTrigger>
+          <TabsTrigger value="projects" className="px-6 py-2"><Cpu className="h-4 w-4 mr-2" /> Projects</TabsTrigger>
+          <TabsTrigger value="achievements" className="px-6 py-2"><Award className="h-4 w-4 mr-2" /> Achievements</TabsTrigger>
+          <TabsTrigger value="logs" className="px-6 py-2"><History className="h-4 w-4 mr-2" /> Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="messages">
-          <div className="grid gap-8">
-            <ScrollArea className="h-[600px] rounded-xl border border-border bg-card/50 p-4 md:p-6">
-              {messagesLoading ? (
-                <div className="flex flex-col items-center justify-center h-full gap-4">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-xs font-code animate-pulse">DECRYPTING SIGNALS...</p>
-                </div>
-              ) : !messages || messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 italic">
-                  <p>No transmissions found in database.</p>
-                </div>
-              ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {messages?.map((msg) => (
-                    <Card key={msg.id} className="bg-background/50 border-border hover:border-primary/50 transition-colors">
-                      <CardHeader className="py-4">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg text-primary truncate">{msg.title}</CardTitle>
-                          <time className="text-[10px] font-code text-muted-foreground shrink-0 ml-2">
-                            {format(new Date(msg.createdAt), 'yy-MM-dd HH:mm')}
-                          </time>
-                        </div>
-                        <CardDescription className="font-code text-[10px]">{msg.username || 'Anonymous'}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="py-4 pt-0">
-                        <pre className="text-xs font-body whitespace-pre-wrap leading-relaxed text-muted-foreground">
-                          {msg.content}
-                        </pre>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {messagesLoading ? <Loader2 className="animate-spin" /> : messages?.map(msg => (
+              <Card key={msg.id} className="bg-background/50 border-border">
+                <CardHeader className="py-4">
+                  <CardTitle className="text-lg text-primary">{msg.title}</CardTitle>
+                  <CardDescription className="text-[10px] font-code">{msg.username} • {format(new Date(msg.createdAt), 'yy-MM-dd HH:mm')}</CardDescription>
+                </CardHeader>
+                <CardContent className="py-4 pt-0 text-sm text-muted-foreground whitespace-pre-wrap">{msg.content}</CardContent>
+              </Card>
+            ))}
           </div>
         </TabsContent>
 
         <TabsContent value="writeups">
           <div className="grid lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-headline font-bold flex items-center">
-                  <Database className="h-5 w-5 mr-2 text-primary" /> Records
-                </h2>
-                <Button size="sm" onClick={handleNewEntry} className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30">
-                  <Plus className="h-4 w-4 mr-1" /> New Entry
-                </Button>
-              </div>
-              <ScrollArea className="h-[600px] rounded-xl border border-border bg-card/30">
+              <Button onClick={() => { setEditMode("writeup"); setEditingId(null); setWriteupForm({title: "", competition: "", category: "Web", difficulty: "Medium", date: format(new Date(), 'yyyy-MM-dd'), summary: "", content: "", flag: "", tags: ""}) }} className="w-full bg-primary/20 text-primary border border-primary/30">
+                <Plus className="h-4 w-4 mr-2" /> New Write-up
+              </Button>
+              <ScrollArea className="h-[500px] border rounded-lg bg-card/30">
                 <div className="p-4 space-y-2">
-                  {writeupsLoading ? (
-                    <div className="flex justify-center p-8"><Loader2 className="animate-spin h-6 w-6 text-primary" /></div>
-                  ) : !writeups || writeups.length === 0 ? (
-                    <p className="text-center py-8 text-muted-foreground text-xs italic">No records available.</p>
-                  ) : (
-                    writeups.map(w => (
-                      <div key={w.id} className={cn(
-                        "p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between group",
-                        editingId === w.id ? "bg-primary/10 border-primary/50" : "bg-card hover:bg-muted border-border"
-                      )} onClick={() => handleEdit(w)}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate">{w.title}</p>
-                          <p className="text-[10px] text-muted-foreground font-code">{w.category} • {w.competition}</p>
-                        </div>
-                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7 text-destructive hover:bg-destructive/10" 
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
-                              triggerDelete(w.id); 
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  {writeups?.map(w => (
+                    <div key={w.id} className={cn("p-3 rounded-lg border flex justify-between group items-center", editingId === w.id ? "bg-primary/10" : "bg-card")} onClick={() => { setEditMode("writeup"); setEditingId(w.id); setWriteupForm({ ...w, tags: (w.tags || []).join(', ') }) }}>
+                      <div className="truncate"><p className="text-sm font-bold truncate">{w.title}</p><p className="text-[10px] text-muted-foreground">{w.competition}</p></div>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); triggerDelete(w.id, "ctfWriteups") }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                  ))}
                 </div>
               </ScrollArea>
             </div>
-
             <div className="lg:col-span-8">
-              {isEditing ? (
-                <Card className="bg-card border-border h-full flex flex-col">
-                  <CardHeader className="border-b border-border/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <CardTitle className="text-xl font-headline">{editingId ? 'Edit Signal' : 'New Signal'}</CardTitle>
-                      <CardDescription>Protocol: CTF Documentation</CardDescription>
-                    </div>
-                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                      {editingId && (
-                        <Button variant="destructive" size="sm" onClick={() => triggerDelete(editingId)} className="flex-1 sm:flex-none">
-                          <Trash2 className="h-4 w-4 mr-1" /> Delete
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setEditingId(null); }} className="flex-1 sm:flex-none">
-                        <X className="h-4 w-4 mr-1" /> Cancel
-                      </Button>
-                      <Button size="sm" className="bg-primary text-primary-foreground flex-1 sm:flex-none" onClick={handleSaveWriteup}>
-                        <Save className="h-4 w-4 mr-1" /> Save Signal
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex-1 p-4 md:p-6 overflow-y-auto">
-                    <div className="space-y-6">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-code uppercase">Title</Label>
-                          <Input 
-                            placeholder="e.g. SQLi to RCE on Legacy CMS"
-                            value={writeupForm.title}
-                            onChange={(e) => setWriteupForm({...writeupForm, title: e.target.value})}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-code uppercase">Competition</Label>
-                          <Input 
-                            placeholder="e.g. PicoCTF 2023"
-                            value={writeupForm.competition}
-                            onChange={(e) => setWriteupForm({...writeupForm, competition: e.target.value})}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-code uppercase">Category</Label>
-                          <Select value={writeupForm.category} onValueChange={(v) => setWriteupForm({...writeupForm, category: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {["Web", "Pwn", "Crypto", "Reverse", "Forensics"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-code uppercase">Difficulty</Label>
-                          <Select value={writeupForm.difficulty} onValueChange={(v) => setWriteupForm({...writeupForm, difficulty: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {["Easy", "Medium", "Hard"].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-code uppercase">Date</Label>
-                          <Input 
-                            type="date"
-                            value={writeupForm.date}
-                            onChange={(e) => setWriteupForm({...writeupForm, date: e.target.value})}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-code uppercase flex items-center gap-2">
-                          <Key className="h-3 w-3 text-primary" /> Captured Flag
-                        </Label>
-                        <Input 
-                          placeholder="e.g. picoCTF{flag_goes_here}"
-                          value={writeupForm.flag}
-                          onChange={(e) => setWriteupForm({...writeupForm, flag: e.target.value})}
-                          className="font-code text-primary"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-code uppercase">Tags (comma separated)</Label>
-                        <Input 
-                          placeholder="SQLi, WAF, Exploit"
-                          value={writeupForm.tags}
-                          onChange={(e) => setWriteupForm({...writeupForm, tags: e.target.value})}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-code uppercase">Summary</Label>
-                        <Textarea 
-                          placeholder="Brief description of the challenge and solution..."
-                          className="min-h-[100px] resize-none"
-                          value={writeupForm.summary}
-                          onChange={(e) => setWriteupForm({...writeupForm, summary: e.target.value})}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-code uppercase">Documentation / Content</Label>
-                        <Textarea 
-                          placeholder="Detailed exploitation steps, code snippets, etc..."
-                          className="min-h-[400px] font-body text-sm leading-relaxed"
-                          value={writeupForm.content}
-                          onChange={(e) => setWriteupForm({...writeupForm, content: e.target.value})}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl bg-muted/10 p-8 md:p-12 text-center space-y-4">
-                  <Database className="h-12 w-12 text-muted" />
-                  <div>
-                    <h3 className="text-xl font-headline font-bold">Write-up Repository Manager</h3>
-                    <p className="text-sm text-muted-foreground">Select a record to edit or create a new one to broadcast.</p>
+              {editMode === "writeup" ? (
+                <Card className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Title</Label><Input value={writeupForm.title} onChange={e => setWriteupForm({...writeupForm, title: e.target.value})} /></div>
+                    <div className="space-y-2"><Label>Competition</Label><Input value={writeupForm.competition} onChange={e => setWriteupForm({...writeupForm, competition: e.target.value})} /></div>
                   </div>
-                  <Button onClick={handleNewEntry} className="bg-primary text-primary-foreground font-bold">
-                    <Plus className="h-4 w-4 mr-2" /> CREATE NEW SIGNAL
-                  </Button>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select value={writeupForm.category} onValueChange={v => setWriteupForm({...writeupForm, category: v})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>{["Web", "Pwn", "Crypto", "Reverse", "Forensics"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2"><Label>Difficulty</Label><Select value={writeupForm.difficulty} onValueChange={v => setWriteupForm({...writeupForm, difficulty: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Easy", "Medium", "Hard"].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div>
+                    <div className="space-y-2"><Label>Date</Label><Input type="date" value={writeupForm.date} onChange={e => setWriteupForm({...writeupForm, date: e.target.value})} /></div>
+                  </div>
+                  <div className="space-y-2"><Label>Flag</Label><Input value={writeupForm.flag} onChange={e => setWriteupForm({...writeupForm, flag: e.target.value})} className="font-code text-primary" /></div>
+                  <div className="space-y-2"><Label>Tags</Label><Input value={writeupForm.tags} onChange={e => setWriteupForm({...writeupForm, tags: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>Summary</Label><Textarea value={writeupForm.summary} onChange={e => setWriteupForm({...writeupForm, summary: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>Content</Label><Textarea value={writeupForm.content} onChange={e => setWriteupForm({...writeupForm, content: e.target.value})} className="min-h-[200px]" /></div>
+                  <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button onClick={saveWriteup}><Save className="h-4 w-4 mr-2" /> Save</Button></div>
+                </Card>
+              ) : <div className="h-full border-2 border-dashed rounded-xl flex items-center justify-center text-muted-foreground">Select record or create new</div>}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="projects">
+          <div className="grid lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-4 space-y-4">
+              <Button onClick={() => { setEditMode("project"); setEditingId(null); setProjectForm({title: "", description: "", imageUrl: "", category: "Security Tooling", tags: ""}) }} className="w-full bg-primary/20 text-primary border border-primary/30">
+                <Plus className="h-4 w-4 mr-2" /> New Project
+              </Button>
+              <ScrollArea className="h-[500px] border rounded-lg bg-card/30">
+                <div className="p-4 space-y-2">
+                  {projects?.map(p => (
+                    <div key={p.id} className={cn("p-3 rounded-lg border flex justify-between group items-center", editingId === p.id ? "bg-primary/10" : "bg-card")} onClick={() => { setEditMode("project"); setEditingId(p.id); setProjectForm({ ...p, tags: (p.tags || []).join(', ') }) }}>
+                      <div className="truncate"><p className="text-sm font-bold truncate">{p.title}</p><p className="text-[10px] text-muted-foreground">{p.category}</p></div>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); triggerDelete(p.id, "projects") }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </ScrollArea>
+            </div>
+            <div className="lg:col-span-8">
+              {editMode === "project" ? (
+                <Card className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Project Title</Label><Input value={projectForm.title} onChange={e => setProjectForm({...projectForm, title: e.target.value})} /></div>
+                    <div className="space-y-2"><Label>Category</Label><Input value={projectForm.category} onChange={e => setProjectForm({...projectForm, category: e.target.value})} /></div>
+                  </div>
+                  
+                  <div className="space-y-4 border-y py-4 my-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Image Source</Label>
+                      <div className="flex bg-muted p-1 rounded-md">
+                        <Button size="sm" variant={imageSource === "url" ? "default" : "ghost"} onClick={() => setImageSource("url")} className="h-7 text-[10px]"><LinkIcon className="h-3 w-3 mr-1" /> URL</Button>
+                        <Button size="sm" variant={imageSource === "upload" ? "default" : "ghost"} onClick={() => setImageSource("upload")} className="h-7 text-[10px]"><ImageIcon className="h-3 w-3 mr-1" /> UPLOAD</Button>
+                      </div>
+                    </div>
+                    {imageSource === "url" ? (
+                      <Input placeholder="https://..." value={projectForm.imageUrl} onChange={e => setProjectForm({...projectForm, imageUrl: e.target.value})} />
+                    ) : (
+                      <Input type="file" accept="image/*" onChange={e => handleImageUpload(e, (url) => setProjectForm({...projectForm, imageUrl: url}))} />
+                    )}
+                    {projectForm.imageUrl && (
+                      <div className="mt-2 h-20 w-32 relative rounded border overflow-hidden">
+                        <img src={projectForm.imageUrl} alt="Preview" className="object-cover w-full h-full" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2"><Label>Description</Label><Textarea value={projectForm.description} onChange={e => setProjectForm({...projectForm, description: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>Tags (comma separated)</Label><Input value={projectForm.tags} onChange={e => setProjectForm({...projectForm, tags: e.target.value})} /></div>
+                  
+                  <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button onClick={saveProject}><Save className="h-4 w-4 mr-2" /> Save Project</Button></div>
+                </Card>
+              ) : <div className="h-full border-2 border-dashed rounded-xl flex items-center justify-center text-muted-foreground">Select project to edit</div>}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="achievements">
+          <div className="grid lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-4 space-y-4">
+              <Button onClick={() => { setEditMode("achievement"); setEditingId(null); setAchievementForm({title: "", issuer: "", platform: "", description: "", imageUrl: "", date: format(new Date(), 'yyyy-MM-dd')}) }} className="w-full bg-primary/20 text-primary border border-primary/30">
+                <Plus className="h-4 w-4 mr-2" /> New Achievement
+              </Button>
+              <ScrollArea className="h-[500px] border rounded-lg bg-card/30">
+                <div className="p-4 space-y-2">
+                  {achievements?.map(a => (
+                    <div key={a.id} className={cn("p-3 rounded-lg border flex justify-between group items-center", editingId === a.id ? "bg-primary/10" : "bg-card")} onClick={() => { setEditMode("achievement"); setEditingId(a.id); setAchievementForm({ ...a }) }}>
+                      <div className="truncate"><p className="text-sm font-bold truncate">{a.title}</p><p className="text-[10px] text-muted-foreground">{a.issuer}</p></div>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); triggerDelete(a.id, "achievements") }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+            <div className="lg:col-span-8">
+              {editMode === "achievement" ? (
+                <Card className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Title</Label><Input value={achievementForm.title} onChange={e => setAchievementForm({...achievementForm, title: e.target.value})} /></div>
+                    <div className="space-y-2"><Label>Issuer</Label><Input value={achievementForm.issuer} onChange={e => setAchievementForm({...achievementForm, issuer: e.target.value})} /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Platform</Label><Input value={achievementForm.platform} onChange={e => setAchievementForm({...achievementForm, platform: e.target.value})} /></div>
+                    <div className="space-y-2"><Label>Date</Label><Input value={achievementForm.date} onChange={e => setAchievementForm({...achievementForm, date: e.target.value})} /></div>
+                  </div>
+                  
+                  <div className="space-y-4 border-y py-4 my-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Credential Image</Label>
+                      <div className="flex bg-muted p-1 rounded-md">
+                        <Button size="sm" variant={imageSource === "url" ? "default" : "ghost"} onClick={() => setImageSource("url")} className="h-7 text-[10px]"><LinkIcon className="h-3 w-3 mr-1" /> URL</Button>
+                        <Button size="sm" variant={imageSource === "upload" ? "default" : "ghost"} onClick={() => setImageSource("upload")} className="h-7 text-[10px]"><ImageIcon className="h-3 w-3 mr-1" /> UPLOAD</Button>
+                      </div>
+                    </div>
+                    {imageSource === "url" ? (
+                      <Input placeholder="https://..." value={achievementForm.imageUrl} onChange={e => setAchievementForm({...achievementForm, imageUrl: e.target.value})} />
+                    ) : (
+                      <Input type="file" accept="image/*" onChange={e => handleImageUpload(e, (url) => setAchievementForm({...achievementForm, imageUrl: url}))} />
+                    )}
+                    {achievementForm.imageUrl && (
+                      <div className="mt-2 h-20 w-32 relative rounded border overflow-hidden">
+                        <img src={achievementForm.imageUrl} alt="Preview" className="object-cover w-full h-full" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2"><Label>Description</Label><Textarea value={achievementForm.description} onChange={e => setAchievementForm({...achievementForm, description: e.target.value})} /></div>
+                  
+                  <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> Save Record</Button></div>
+                </Card>
+              ) : <div className="h-full border-2 border-dashed rounded-xl flex items-center justify-center text-muted-foreground">Select achievement node</div>}
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="logs">
-           <div className="rounded-xl border border-border bg-card/50 overflow-hidden h-[600px] flex flex-col">
-            <div className="bg-muted p-3 border-b border-border flex justify-between text-[10px] font-code uppercase text-muted-foreground">
-              <span>Identifier</span>
-              <span>Timestamp</span>
-            </div>
+          <Card className="bg-card/50 overflow-hidden h-[600px] flex flex-col">
             <ScrollArea className="flex-1 p-0">
-              {logsLoading ? (
-                 <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {logs?.map((log) => (
-                    <div key={log.id} className="p-3 flex justify-between items-center group hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <User className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs font-medium">{log.username}</span>
-                      </div>
-                      <span className="text-[9px] font-code text-muted-foreground">
-                        {format(new Date(log.accessedAt), 'yyyy-MM-dd HH:mm:ss')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="divide-y divide-border">
+                {logs?.map(log => (
+                  <div key={log.id} className="p-3 flex justify-between items-center text-xs">
+                    <span className="font-medium text-primary">{log.username}</span>
+                    <span className="text-muted-foreground font-code">{format(new Date(log.accessedAt), 'yyyy-MM-dd HH:mm:ss')}</span>
+                  </div>
+                ))}
+              </div>
             </ScrollArea>
-          </div>
+          </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="border-border bg-card">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertCircle className="h-5 w-5" /> Confirm Purge
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">
-              This action will permanently delete the selected write-up record from the Firestore database. This protocol cannot be reversed.
-            </AlertDialogDescription>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-destructive" /> Confirm Purge</AlertDialogTitle>
+            <AlertDialogDescription>This protocol cannot be reversed. Remove record from Firestore nodes?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-border hover:bg-muted">ABORT</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              EXECUTE DELETE
-            </AlertDialogAction>
+            <AlertDialogCancel>ABORT</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">EXECUTE PURGE</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

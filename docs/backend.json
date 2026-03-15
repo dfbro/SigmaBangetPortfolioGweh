@@ -7,80 +7,34 @@
       "type": "object",
       "description": "Represents a piece of secure content or output to be displayed on a restricted page, typically visible only after successful authentication.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the SecureMessage entity."
-        },
-        "title": {
-          "type": "string",
-          "description": "A brief title or heading for the secure message content."
-        },
-        "content": {
-          "type": "string",
-          "description": "The main body of the secure message or output, which can contain rich text or structured data."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the secure message was originally created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the secure message was last updated.",
-          "format": "date-time"
-        },
-        "displayOrder": {
-          "type": "number",
-          "description": "An integer value to define the display order of this message relative to other secure messages on the page."
-        }
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "displayOrder": { "type": "number" }
       },
-      "required": [
-        "id",
-        "title",
-        "content",
-        "createdAt"
-      ]
+      "required": ["id", "title", "content", "createdAt"]
     },
     "SecurePageAccessLog": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "SecurePageAccessLog",
       "type": "object",
-      "description": "Records attempts to access the secure messaging output page, including details about the accessor and the outcome.",
+      "description": "Records attempts to access the secure messaging output page.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the SecurePageAccessLog entity."
-        },
-        "accessedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the access attempt occurred.",
-          "format": "date-time"
-        },
-        "username": {
-          "type": "string",
-          "description": "The username provided during the access attempt. This is primarily for logging and tracking who attempted to access the page."
-        },
-        "accessSuccessful": {
-          "type": "boolean",
-          "description": "Indicates whether the access attempt was successful (e.g., correct password provided and authenticated)."
-        },
-        "ipAddress": {
-          "type": "string",
-          "description": "The IP address from which the access attempt originated (can be IPv4 or IPv6)."
-        }
+        "id": { "type": "string" },
+        "accessedAt": { "type": "string", "format": "date-time" },
+        "username": { "type": "string" },
+        "accessSuccessful": { "type": "boolean" },
+        "ipAddress": { "type": "string" }
       },
-      "required": [
-        "id",
-        "accessedAt",
-        "username",
-        "accessSuccessful"
-      ]
+      "required": ["id", "accessedAt", "username", "accessSuccessful"]
     },
     "CTFWriteup": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CTFWriteup",
       "type": "object",
-      "description": "Detailed write-up for a CTF challenge, including competition info, difficulty, and exploitation steps.",
+      "description": "Detailed write-up for a CTF challenge.",
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
@@ -90,18 +44,44 @@
         "date": { "type": "string", "format": "date" },
         "summary": { "type": "string" },
         "content": { "type": "string" },
-        "flag": { "type": "string", "description": "The captured flag string." },
+        "flag": { "type": "string" },
         "tags": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "competition", "category", "difficulty", "date", "summary", "content"]
+    },
+    "Project": {
+      "title": "Project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description"]
+    },
+    "Achievement": {
+      "title": "Achievement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "issuer": { "type": "string" },
+        "platform": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "issuer"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "/users/{ownerId}/secureMessages/{messageId}": {
@@ -115,6 +95,14 @@
     "/ctfWriteups/{writeupId}": {
       "schema": { "$ref": "#/backend/entities/CTFWriteup" },
       "description": "Publicly viewable CTF write-ups."
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/backend/entities/Project" },
+      "description": "Publicly viewable projects."
+    },
+    "/achievements/{achievementId}": {
+      "schema": { "$ref": "#/backend/entities/Achievement" },
+      "description": "Publicly viewable achievements."
     }
   }
 }

@@ -2,27 +2,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // --- Global Helper Functions ---
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // --- Collection Rules ---
-
-    match /users/{ownerId}/secureMessages/{messageId} {
-      allow create: if true;
-      allow read, list, update, delete: if true; 
-    }
-
-    match /securePageAccessLogs/{logId} {
-      allow create: if true;
-      allow read, list: if true;
-    }
-
+    // Publicly readable collections
     match /ctfWriteups/{writeupId} {
       allow read, list: if true;
-      allow create, update, delete: if true;
+      allow write: if true; // Admin access via password simulation in UI
+    }
+    match /projects/{projectId} {
+      allow read, list: if true;
+      allow write: if true;
+    }
+    match /achievements/{achievementId} {
+      allow read, list: if true;
+      allow write: if true;
+    }
+    match /securePageAccessLogs/{logId} {
+      allow create, read, list: if true;
+    }
+    match /users/{ownerId}/secureMessages/{messageId} {
+      allow read, write, list: if true;
     }
   }
 }
