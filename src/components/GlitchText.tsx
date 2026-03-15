@@ -1,9 +1,8 @@
-
 "use client"
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-const glyphs = "ABCDEFHIJKLMNOPQRSTUVXYZ0123456789@#$%^&*()_+"
+const glyphs = "X#%&@<>[]{}01"
 
 interface GlitchTextProps {
   text: string
@@ -15,7 +14,6 @@ export function GlitchText({ text, className }: GlitchTextProps) {
   const [isGlitching, setIsGlitching] = React.useState(false)
 
   React.useEffect(() => {
-    // Trigger glitch effect on text change
     setIsGlitching(true)
     let iteration = 0
     const maxIterations = text.length
@@ -27,6 +25,7 @@ export function GlitchText({ text, className }: GlitchTextProps) {
           .map((char, i) => {
             if (i < iteration) return text[i]
             if (char === " ") return " "
+            // Higher probability of scrambling at the start
             return glyphs[Math.floor(Math.random() * glyphs.length)]
           })
           .join("")
@@ -38,19 +37,25 @@ export function GlitchText({ text, className }: GlitchTextProps) {
         setDisplayText(text)
       }
       
-      iteration += 1/2
-    }, 30)
+      iteration += 1/3 // Slower reveal for more 'impact'
+    }, 40)
 
     return () => clearInterval(interval)
   }, [text])
 
   return (
     <span className={cn(
-      "font-code transition-all duration-300 inline-block",
-      isGlitching && "animate-glitch text-secondary",
+      "font-code transition-all duration-300 inline-block relative",
+      isGlitching && "animate-glitch text-primary opacity-90",
       className
     )}>
       {displayText}
+      {isGlitching && (
+        <>
+          <span className="absolute top-0 left-0 -translate-x-1 translate-y-1 text-secondary opacity-50 mix-blend-screen">{displayText}</span>
+          <span className="absolute top-0 left-0 translate-x-1 -translate-y-1 text-destructive opacity-50 mix-blend-screen">{displayText}</span>
+        </>
+      )}
     </span>
   )
 }

@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -10,9 +9,9 @@ import { Shield, Terminal, Zap, Lock, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
 const heroItems = [
-  { name: "Claritys", role: "CTF Player" },
-  { name: "Elang", role: "Programmer" },
-  { name: "Elang", role: "Student" },
+  { name: "Claritys", role: "CTF Player", color: "text-primary neon-glow" },
+  { name: "Elang", role: "Programmer", color: "text-secondary" },
+  { name: "Elang", role: "Student", color: "text-accent-foreground opacity-80" },
 ]
 
 export default function Home() {
@@ -21,7 +20,7 @@ export default function Home() {
   React.useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % heroItems.length)
-    }, 3500) // Medium speed transition
+    }, 5000) // Longer delay for readability
     return () => clearInterval(interval)
   }, [])
 
@@ -41,13 +40,14 @@ export default function Home() {
             
             <div className="space-y-2">
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline font-bold leading-tight">
-                Hi, I'm <GlitchText text={heroItems[currentIndex].name} className="text-primary neon-glow" />
+                Hi, I'm <GlitchText key={`name-${currentIndex}`} text={heroItems[currentIndex].name} className="text-primary" />
               </h1>
-              <div className="h-[1.2em] text-4xl md:text-6xl lg:text-7xl font-headline font-bold text-foreground opacity-90">
+              <div className="h-[1.2em] text-4xl md:text-6xl lg:text-7xl font-headline font-bold">
                 <TerminalText 
-                  key={currentIndex} 
+                  key={`role-${currentIndex}`} 
                   text={heroItems[currentIndex].role} 
-                  className="text-secondary"
+                  speed={100} // Slower typing
+                  className={heroItems[currentIndex].color}
                 />
               </div>
             </div>
@@ -55,6 +55,8 @@ export default function Home() {
             <p className="text-xl text-muted-foreground max-w-lg h-20">
               <TerminalText 
                 text="Professional CTF enthusiast and cybersecurity researcher specializing in web penetration testing and cryptanalysis."
+                speed={40}
+                delay={1000}
               />
             </p>
 
@@ -103,7 +105,7 @@ export default function Home() {
                   <p className="text-primary">$ whoami</p>
                   <p className="text-foreground">Elang [Security Enthusiast]</p>
                   <p className="text-primary pt-2">$ cat skill-matrix.json</p>
-                  <div className="pl-4 text-secondary font-bold space-y-1">
+                  <div className="pl-4 text-primary brightness-150 font-bold space-y-1">
                     <p>{"{"}</p>
                     <p className="pl-4">"web": ["XSS", "SQLi", "SSRF"],</p>
                     <p className="pl-4">"pwn": ["Buffer Overflow", "ROP"],</p>
