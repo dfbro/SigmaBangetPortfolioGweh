@@ -3,8 +3,9 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { User, Terminal, Briefcase, GraduationCap, Code2, Globe, Heart } from "lucide-react"
+import { User, Terminal, Briefcase, GraduationCap, Code2, Globe, Heart, Instagram } from "lucide-react"
 import awd from "./awd.png";
+import Image from "next/image"
 
 const skills = [
   { name: "Web Application Security", level: 90 },
@@ -22,8 +23,8 @@ export default function AboutPage() {
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-lg blur opacity-25" />
             <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-primary/50">
-              <img 
-                src="https://picsum.photos/seed/about/600/600" 
+              <Image
+                src={awd} 
                 alt="Profile" 
                 className="object-cover grayscale"
                 data-ai-hint="professional profile"
@@ -34,14 +35,14 @@ export default function AboutPage() {
           <div className="space-y-4">
             <h2 className="text-xl font-headline font-bold border-b border-border pb-2">Connect</h2>
             <div className="space-y-3">
-              <a href="#" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
-                <Globe className="h-4 w-4 mr-3" /> cipher-synth.io
+              <a href="https://claritys.my.id" target="_blank" rel="noopener noreferrer" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Globe className="h-4 w-4 mr-3" /> claritys.my.id
               </a>
-              <a href="#" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
-                <Terminal className="h-4 w-4 mr-3" /> github.com/ciphersynth
+              <a href="https://github.com/Claritys11" target="_blank" rel="noopener noreferrer" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Terminal className="h-4 w-4 mr-3" /> github.com/Claritys11
               </a>
-              <a href="#" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
-                <Briefcase className="h-4 w-4 mr-3" /> linkedin.com/in/cipher
+              <a href="https://www.instagram.com/elanggslibaw/" target="_blank" rel="noopener noreferrer" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Instagram className="h-4 w-4 mr-3" /> @elanggslibaw
               </a>
             </div>
           </div>

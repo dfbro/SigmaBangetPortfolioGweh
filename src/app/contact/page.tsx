@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Mail, Github, Linkedin, MessageSquare, Send, Globe, Terminal, Shield } from "lucide-react"
+import { Mail, Github, MessageSquare, Send, Globe, Shield, Instagram } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore } from "@/firebase"
@@ -20,7 +20,7 @@ export default function ContactPage() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const form = e.currentTarget // Capture the form reference before the async timeout
+    const form = e.currentTarget
     setIsSubmitting(true)
 
     const formData = new FormData(form)
@@ -44,7 +44,7 @@ export default function ContactPage() {
         title: "SIGNAL TRANSMITTED",
         description: "Your message has been encrypted and sent to the secure node.",
       })
-      form.reset() // Use the captured form reference
+      form.reset()
     }, 1000)
   }
 
@@ -87,7 +87,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <p className="text-[10px] font-code uppercase text-muted-foreground">Email (PGP Encrypted)</p>
-                        <p className="font-medium">cipher@elang.io</p>
+                        <p className="font-medium">elangdimassyadewa@gmail.com</p>
                       </div>
                     </div>
                     <div className="flex items-center text-sm group/item">
@@ -105,13 +105,13 @@ export default function ContactPage() {
                 <div>
                   <h2 className="text-xl font-headline font-bold mb-4">Social Hubs</h2>
                   <div className="grid grid-cols-2 gap-4">
-                    <a href="#" className="flex items-center p-3 rounded bg-muted/50 border border-border hover:border-primary/50 transition-colors">
+                    <a href="https://github.com/Claritys11" target="_blank" rel="noopener noreferrer" className="flex items-center p-3 rounded bg-muted/50 border border-border hover:border-primary/50 transition-colors">
                       <Github className="h-4 w-4 mr-3" />
                       <span className="text-sm font-medium">GitHub</span>
                     </a>
-                    <a href="#" className="flex items-center p-3 rounded bg-muted/50 border border-border hover:border-secondary/50 transition-colors">
-                      <Linkedin className="h-4 w-4 mr-3" />
-                      <span className="text-sm font-medium">LinkedIn</span>
+                    <a href="https://www.instagram.com/elanggslibaw/" target="_blank" rel="noopener noreferrer" className="flex items-center p-3 rounded bg-muted/50 border border-border hover:border-secondary/50 transition-colors">
+                      <Instagram className="h-4 w-4 mr-3" />
+                      <span className="text-sm font-medium">Instagram</span>
                     </a>
                   </div>
                 </div>
@@ -119,7 +119,7 @@ export default function ContactPage() {
 
               <div className="mt-12 pt-8 border-t border-border">
                 <div className="bg-black/40 p-4 rounded font-code text-[10px] text-primary/70">
-                  <p>$ gpg --list-keys cipher-node</p>
+                  <p>$ gpg --list-keys clarity-node</p>
                   <p className="text-muted-foreground mt-1">pub   rsa4096 2023-01-01 [SC]</p>
                   <p className="text-muted-foreground">      E429 771A F920 31B4 88C1 ...</p>
                 </div>
