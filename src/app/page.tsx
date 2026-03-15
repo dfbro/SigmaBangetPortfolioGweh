@@ -8,20 +8,34 @@ import { GlitchText } from "@/components/GlitchText"
 import { Shield, Terminal, Zap, Lock, ChevronRight } from "lucide-react"
 import Link from "next/link"
 
-const heroItems = [
-  { name: "Claritys", role: "CTF Player", color: "text-primary neon-glow" },
-  { name: "Elang", role: "Programmer", color: "text-secondary" },
-  { name: "Elang", role: "Student", color: "text-accent-foreground opacity-80" },
+const roles = [
+  { text: "CTF Player", color: "text-primary neon-glow" },
+  { text: "Programmer", color: "text-secondary" },
+  { text: "Student", color: "text-accent" },
 ]
 
 export default function Home() {
-  const [currentIndex, setCurrentIndex] = React.useState(0)
+  const [currentRoleIndex, setCurrentRoleIndex] = React.useState(0)
+  const [name, setName] = React.useState("Elang")
 
+  // Rotate roles every 6 seconds
   React.useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % heroItems.length)
-    }, 5000) // Longer delay for readability
-    return () => clearInterval(interval)
+    const roleInterval = setInterval(() => {
+      setCurrentRoleIndex((prev) => (prev + 1) % roles.length)
+    }, 6000)
+    return () => clearInterval(roleInterval)
+  }, [])
+
+  // Glitch name to Claritys every 7 seconds
+  React.useEffect(() => {
+    const nameGlitchInterval = setInterval(() => {
+      setName("Claritys")
+      // Quick return to Elang after the glitch completes
+      setTimeout(() => {
+        setName("Elang")
+      }, 1000)
+    }, 7000)
+    return () => clearInterval(nameGlitchInterval)
   }, [])
 
   return (
@@ -40,14 +54,14 @@ export default function Home() {
             
             <div className="space-y-2">
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline font-bold leading-tight">
-                Hi, I'm <GlitchText key={`name-${currentIndex}`} text={heroItems[currentIndex].name} className="text-primary" />
+                Hi, I'm <GlitchText text={name} className="text-primary" />
               </h1>
               <div className="h-[1.2em] text-4xl md:text-6xl lg:text-7xl font-headline font-bold">
                 <TerminalText 
-                  key={`role-${currentIndex}`} 
-                  text={heroItems[currentIndex].role} 
-                  speed={100} // Slower typing
-                  className={heroItems[currentIndex].color}
+                  key={`role-${currentRoleIndex}`} 
+                  text={roles[currentRoleIndex].text} 
+                  speed={120}
+                  className={roles[currentRoleIndex].color}
                 />
               </div>
             </div>
@@ -56,7 +70,7 @@ export default function Home() {
               <TerminalText 
                 text="Professional CTF enthusiast and cybersecurity researcher specializing in web penetration testing and cryptanalysis."
                 speed={40}
-                delay={1000}
+                delay={1500}
               />
             </p>
 
@@ -105,7 +119,7 @@ export default function Home() {
                   <p className="text-primary">$ whoami</p>
                   <p className="text-foreground">Elang [Security Enthusiast]</p>
                   <p className="text-primary pt-2">$ cat skill-matrix.json</p>
-                  <div className="pl-4 text-primary brightness-150 font-bold space-y-1">
+                  <div className="pl-4 text-primary brightness-200 font-bold space-y-1">
                     <p>{"{"}</p>
                     <p className="pl-4">"web": ["XSS", "SQLi", "SSRF"],</p>
                     <p className="pl-4">"pwn": ["Buffer Overflow", "ROP"],</p>

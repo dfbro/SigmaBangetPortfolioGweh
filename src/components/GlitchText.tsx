@@ -25,7 +25,6 @@ export function GlitchText({ text, className }: GlitchTextProps) {
           .map((char, i) => {
             if (i < iteration) return text[i]
             if (char === " ") return " "
-            // Higher probability of scrambling at the start
             return glyphs[Math.floor(Math.random() * glyphs.length)]
           })
           .join("")
@@ -37,23 +36,23 @@ export function GlitchText({ text, className }: GlitchTextProps) {
         setDisplayText(text)
       }
       
-      iteration += 1/3 // Slower reveal for more 'impact'
-    }, 40)
+      iteration += 1 // Faster reveal for sharper glitch effect
+    }, 30) // Faster update interval
 
     return () => clearInterval(interval)
   }, [text])
 
   return (
     <span className={cn(
-      "font-code transition-all duration-300 inline-block relative",
+      "font-code transition-all duration-150 inline-block relative",
       isGlitching && "animate-glitch text-primary opacity-90",
       className
     )}>
       {displayText}
       {isGlitching && (
         <>
-          <span className="absolute top-0 left-0 -translate-x-1 translate-y-1 text-secondary opacity-50 mix-blend-screen">{displayText}</span>
-          <span className="absolute top-0 left-0 translate-x-1 -translate-y-1 text-destructive opacity-50 mix-blend-screen">{displayText}</span>
+          <span className="absolute top-0 left-0 -translate-x-1 translate-y-1 text-secondary opacity-70 mix-blend-screen">{displayText}</span>
+          <span className="absolute top-0 left-0 translate-x-1 -translate-y-1 text-destructive opacity-70 mix-blend-screen">{displayText}</span>
         </>
       )}
     </span>
