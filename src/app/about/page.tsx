@@ -1,7 +1,7 @@
+
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { User, Terminal, Briefcase, GraduationCap, Code2, Globe, Heart, Instagram } from "lucide-react"
 import awd from "./awd.png";
@@ -22,9 +22,9 @@ const skills = [
 export default function AboutPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="grid md:grid-cols-3 gap-12">
+      <div className="grid md:grid-cols-3 gap-8 md:gap-12">
         <div className="md:col-span-1 space-y-8">
-          <div className="relative group p-1 rounded-xl border border-border">
+          <div className="relative group p-1 rounded-xl border border-border max-w-[300px] mx-auto md:max-w-none">
             <GlowingEffect
               disabled={false}
               proximity={64}
@@ -42,8 +42,8 @@ export default function AboutPage() {
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-xl font-headline font-bold border-b border-border pb-2">Connect</h2>
-            <div className="space-y-3">
+            <h2 className="text-xl font-headline font-bold border-b border-border pb-2 text-center md:text-left">Connect</h2>
+            <div className="space-y-3 flex flex-col items-center md:items-start">
               <a href="https://claritys.my.id" target="_blank" rel="noopener noreferrer" className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Globe className="h-4 w-4 mr-3" /> claritys.my.id
               </a>
@@ -57,7 +57,7 @@ export default function AboutPage() {
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-xl font-headline font-bold border-b border-border pb-2">Education</h2>
+            <h2 className="text-xl font-headline font-bold border-b border-border pb-2 text-center md:text-left">Education</h2>
             <div className="space-y-4">
               <div className="flex gap-4">
                 <GraduationCap className="h-5 w-5 text-primary shrink-0" />
@@ -66,8 +66,6 @@ export default function AboutPage() {
                   <p className="text-xs text-muted-foreground">SMPN 11 Malang, 2022 - 2025</p>
                 </div>
               </div>
-            </div>
-            <div className="space-y-4">
               <div className="flex gap-4">
                 <GraduationCap className="h-5 w-5 text-primary shrink-0" />
                 <div>
@@ -79,14 +77,14 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div className="md:col-span-2 space-y-12">
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2 text-primary">
+        <div className="md:col-span-2 space-y-12 mt-12 md:mt-0">
+          <div className="space-y-4 text-center md:text-left">
+            <div className="flex items-center justify-center md:justify-start space-x-2 text-primary">
               <User className="h-5 w-5" />
               <span className="font-code text-sm font-bold uppercase tracking-widest">Profile</span>
             </div>
-            <h1 className="text-5xl font-headline font-bold">Hi, I'm <span className="text-primary neon-glow">Elang Dimas Syadewa</span></h1>
-            <p className="text-xl text-muted-foreground leading-relaxed">
+            <h1 className="text-3xl md:text-5xl font-headline font-bold">Hi, I'm <span className="text-primary neon-glow">Elang Dimas Syadewa</span></h1>
+            <p className="text-base md:text-xl text-muted-foreground leading-relaxed">
               I am a dedicated cybersecurity professional with a passion for offensive security and CTF competitions. 
               My journey began in the terminal, exploring vulnerabilities and building secure systems.
               Today, I focus on helping organizations fortify their digital infrastructure through 
@@ -101,8 +99,8 @@ export default function AboutPage() {
               spread={40}
               glow={true}
             />
-            <div className="relative bg-background/60 backdrop-blur-sm p-6 rounded-lg">
-              <h2 className="text-2xl font-headline font-bold flex items-center mb-6">
+            <div className="relative bg-background/60 backdrop-blur-sm p-4 md:p-6 rounded-lg">
+              <h2 className="text-xl md:text-2xl font-headline font-bold flex items-center mb-6">
                 <Code2 className="h-6 w-6 mr-3 text-secondary" />
                 Technical Arsenal
               </h2>
@@ -121,7 +119,7 @@ export default function AboutPage() {
           </div>
 
           <div className="space-y-6">
-            <h2 className="text-2xl font-headline font-bold flex items-center">
+            <h2 className="text-xl md:text-2xl font-headline font-bold flex items-center justify-center md:justify-start">
               <Briefcase className="h-6 w-6 mr-3 text-secondary" />
               Professional Journey
             </h2>
@@ -165,12 +163,12 @@ export default function AboutPage() {
                     />
                     <Card className="relative bg-card/60 backdrop-blur-sm border-none hover:bg-card/80 transition-colors">
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold">{job.role}</h4>
-                          <time className="text-[10px] font-code text-muted-foreground">{job.period}</time>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-1">
+                          <h4 className="font-bold text-sm md:text-base">{job.role}</h4>
+                          <time className="text-[10px] font-code text-muted-foreground shrink-0">{job.period}</time>
                         </div>
                         <p className="text-xs text-primary mb-2">{job.company}</p>
-                        <p className="text-sm text-muted-foreground">{job.desc}</p>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{job.desc}</p>
                       </CardContent>
                     </Card>
                   </div>
@@ -179,7 +177,7 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="p-6 rounded-lg bg-primary/5 border border-primary/20 space-y-4">
+          <div className="p-4 md:p-6 rounded-lg bg-primary/5 border border-primary/20 space-y-4">
             <h3 className="text-lg font-headline font-bold flex items-center">
               <Heart className="h-5 w-5 mr-2 text-primary" />
               Philosophy

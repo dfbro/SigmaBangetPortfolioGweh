@@ -2,10 +2,8 @@
 "use client"
 
 import * as React from "react"
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Cpu, Github, ExternalLink, ShieldCheck, Lock, Box, Settings, Sparkles, Search, Code } from "lucide-react"
+import { Cpu, ShieldCheck, Lock, Box, Settings, Sparkles, Search } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { cn } from "@/lib/utils"
 
@@ -60,8 +58,8 @@ export default function ProjectsPage() {
           <Cpu className="h-5 w-5" />
           <span className="font-code text-sm font-bold uppercase tracking-widest">Showcase</span>
         </div>
-        <h1 className="text-4xl font-headline font-bold">Technical Projects</h1>
-        <p className="text-muted-foreground max-w-2xl">
+        <h1 className="text-3xl md:text-4xl font-headline font-bold">Technical Projects</h1>
+        <p className="text-muted-foreground max-w-2xl text-sm md:text-base">
           A deep dive into the technical solutions I've architected, focusing on security, performance, and scalability.
         </p>
       </div>
@@ -80,13 +78,13 @@ export default function ProjectsPage() {
         ))}
       </ul>
 
-      <div className="mt-20 p-8 border border-border bg-muted/30 rounded-lg text-center relative overflow-hidden group">
+      <div className="mt-12 md:mt-20 p-6 md:p-8 border border-border bg-muted/30 rounded-lg text-center relative overflow-hidden group">
         <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-        <ShieldCheck className="h-10 w-10 text-primary mx-auto mb-4 relative z-10" />
-        <h3 className="text-xl font-headline font-bold mb-2 relative z-10">Commitment to Secure Coding</h3>
-        <p className="text-muted-foreground max-w-xl mx-auto text-sm relative z-10">
+        <ShieldCheck className="h-8 md:h-10 w-8 md:w-10 text-primary mx-auto mb-4 relative z-10" />
+        <h3 className="text-lg md:text-xl font-headline font-bold mb-2 relative z-10">Commitment to Secure Coding</h3>
+        <p className="text-muted-foreground max-w-xl mx-auto text-xs md:text-sm relative z-10">
           All projects follow OWASP Top 10 guidelines and undergo rigorous manual code review. 
-          View more experiments on my <a href="#" className="text-primary hover:underline">GitHub Laboratory</a>.
+          View more experiments on my <a href="https://github.com/Claritys11" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">GitHub Laboratory</a>.
         </p>
       </div>
     </div>
@@ -105,7 +103,7 @@ interface GridItemProps {
 const GridItem = ({ area, icon, title, description, tags, category }: GridItemProps) => {
   return (
     <li className={cn("min-h-[14rem] list-none", area)}>
-      <div className="relative h-full rounded-[1.25rem] border-[0.75px] border-border p-2 md:rounded-[1.5rem] md:p-3">
+      <div className="relative h-full rounded-[1.25rem] border-[0.75px] border-border p-1.5 md:p-2">
         <GlowingEffect
           spread={40}
           glow={true}
@@ -114,28 +112,28 @@ const GridItem = ({ area, icon, title, description, tags, category }: GridItemPr
           inactiveZone={0.01}
           borderWidth={3}
         />
-        <div className="relative flex h-full flex-col justify-between gap-6 overflow-hidden rounded-xl border-[0.75px] bg-background p-6 shadow-sm dark:shadow-[0px_0px_27px_0px_rgba(45,45,45,0.3)] md:p-6">
+        <div className="relative flex h-full flex-col justify-between gap-6 overflow-hidden rounded-xl border-[0.75px] bg-background p-5 md:p-6 shadow-sm dark:shadow-[0px_0px_27px_0px_rgba(45,45,45,0.3)]">
           <div className="relative flex flex-1 flex-col justify-between gap-3">
             <div className="flex justify-between items-start">
               <div className="w-fit rounded-lg border-[0.75px] border-border bg-muted p-2">
                 {icon}
               </div>
-              <Badge variant="outline" className="text-[9px] uppercase tracking-tighter border-primary/20 text-primary/70">
+              <Badge variant="outline" className="text-[8px] md:text-[9px] uppercase tracking-tighter border-primary/20 text-primary/70">
                 {category}
               </Badge>
             </div>
             <div className="space-y-3">
-              <h3 className="pt-0.5 text-xl leading-[1.375rem] font-bold font-headline tracking-tight text-foreground">
+              <h3 className="pt-0.5 text-lg md:text-xl leading-tight font-bold font-headline tracking-tight text-foreground">
                 {title}
               </h3>
-              <p className="font-body text-sm leading-[1.125rem] md:text-base md:leading-[1.375rem] text-muted-foreground">
+              <p className="font-body text-xs md:text-sm leading-relaxed text-muted-foreground">
                 {description}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-auto">
             {tags.map(tag => (
-              <span key={tag} className="text-[10px] font-code px-2 py-0.5 rounded bg-muted border border-border/50">
+              <span key={tag} className="text-[9px] md:text-[10px] font-code px-2 py-0.5 rounded bg-muted border border-border/50">
                 {tag}
               </span>
             ))}
