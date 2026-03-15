@@ -90,6 +90,7 @@
         "date": { "type": "string", "format": "date" },
         "summary": { "type": "string" },
         "content": { "type": "string" },
+        "flag": { "type": "string", "description": "The captured flag string." },
         "tags": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },

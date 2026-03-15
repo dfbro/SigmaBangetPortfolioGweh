@@ -14,9 +14,12 @@ import {
   ChevronLeft, 
   Flag, 
   Lock, 
+  Unlock,
   FileText,
   Code,
-  Loader2
+  Loader2,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useFirestore, useDoc, useMemoFirebase } from "@/firebase"
@@ -26,6 +29,7 @@ export default function WriteupDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
+  const [isFlagRevealed, setIsFlagRevealed] = React.useState(false)
 
   const db = useFirestore()
   const writeupRef = useMemoFirebase(() => doc(db, "ctfWriteups", id), [db, id])
@@ -98,7 +102,7 @@ export default function WriteupDetailPage() {
             <Flag className="h-4 w-4 mr-3 text-muted-foreground" />
             <span className="text-muted-foreground w-24">Solved</span>
             <span className="font-medium text-green-400 flex items-center">
-              <Lock className="h-3 w-3 mr-1" /> Decrypted
+              <Unlock className="h-3 w-3 mr-1" /> Decrypted
             </span>
           </div>
           <div className="flex items-center text-sm">
@@ -106,7 +110,7 @@ export default function WriteupDetailPage() {
             <span className="text-muted-foreground w-24">Tags</span>
             <div className="flex gap-2">
               {(data.tags || []).map(tag => (
-                <span key={tag} className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-code border border-primary/20">
+                <span key={tag} className="text-[10px] font-code border border-primary/20 bg-primary/10 text-primary px-2 py-0.5 rounded">
                   {tag}
                 </span>
               ))}
@@ -138,14 +142,40 @@ export default function WriteupDetailPage() {
             </div>
           </section>
 
-          <section className="p-8 bg-primary/5 border border-primary/20 rounded-xl space-y-4">
-            <h3 className="text-xl font-headline font-bold text-primary flex items-center">
-              <Flag className="h-5 w-5 mr-3" />
-              Flag Captured
-            </h3>
-            <div className="p-4 bg-primary/10 border border-primary/30 rounded font-code text-center text-primary font-bold">
-              {"COMPLETED_TRANSMISSION"}
+          <section className="p-8 bg-primary/5 border border-primary/20 rounded-xl space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-headline font-bold text-primary flex items-center">
+                <Flag className="h-5 w-5 mr-3" />
+                Flag Captured
+              </h3>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="border-primary/50 text-primary hover:bg-primary/10"
+                onClick={() => setIsFlagRevealed(!isFlagRevealed)}
+              >
+                {isFlagRevealed ? (
+                  <><EyeOff className="h-3 w-3 mr-2" /> HIDE SIGNAL</>
+                ) : (
+                  <><Eye className="h-3 w-3 mr-2" /> REVEAL FLAG SIGNAL</>
+                )}
+              </Button>
             </div>
+            
+            <div className={cn(
+              "p-6 rounded-lg font-code text-center text-lg font-bold border transition-all duration-500",
+              isFlagRevealed 
+                ? "bg-primary/20 border-primary/50 text-primary blur-none" 
+                : "bg-black/40 border-dashed border-primary/20 text-primary/10 blur-[6px] select-none"
+            )}>
+              {isFlagRevealed ? (data.flag || "FLAG_RECOVERED_SUCCESSFULLY") : "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"}
+            </div>
+            
+            {!isFlagRevealed && (
+              <p className="text-[10px] text-center font-code text-muted-foreground uppercase tracking-widest animate-pulse">
+                Click reveal button to authorize data visualization
+              </p>
+            )}
           </section>
         </article>
       </div>

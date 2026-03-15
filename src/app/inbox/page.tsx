@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Terminal, Lock, MessageSquare, History, User, Plus, FileEdit, Trash2, Save, X, Database, Tag } from "lucide-react"
+import { Terminal, Lock, MessageSquare, History, User, Plus, FileEdit, Trash2, Save, X, Database, Tag, Key } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { format } from "date-fns"
@@ -38,6 +38,7 @@ export default function SecureInboxPage() {
     date: format(new Date(), 'yyyy-MM-dd'),
     summary: "",
     content: "",
+    flag: "",
     tags: ""
   })
 
@@ -114,6 +115,7 @@ export default function SecureInboxPage() {
       date: format(new Date(), 'yyyy-MM-dd'),
       summary: "",
       content: "",
+      flag: "",
       tags: ""
     })
   }
@@ -127,6 +129,7 @@ export default function SecureInboxPage() {
       date: w.date,
       summary: w.summary,
       content: w.content,
+      flag: w.flag || "",
       tags: (w.tags || []).join(', ')
     })
     setEditingId(w.id)
@@ -258,13 +261,12 @@ export default function SecureInboxPage() {
 
         <TabsContent value="writeups">
           <div className="grid lg:grid-cols-12 gap-8">
-            {/* List / Manager Sidebar */}
             <div className="lg:col-span-4 space-y-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xl font-headline font-bold flex items-center">
                   <Database className="h-5 w-5 mr-2 text-primary" /> Records
                 </h2>
-                <Button size="sm" onClick={() => { setIsEditing(true); setEditingId(null); }} className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30">
+                <Button size="sm" onClick={() => { setIsEditing(true); setEditingId(null); setWriteupForm({ title: "", competition: "", category: "Web", difficulty: "Medium", date: format(new Date(), 'yyyy-MM-dd'), summary: "", content: "", flag: "", tags: "" }); }} className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30">
                   <Plus className="h-4 w-4 mr-1" /> New Entry
                 </Button>
               </div>
@@ -296,7 +298,6 @@ export default function SecureInboxPage() {
               </ScrollArea>
             </div>
 
-            {/* Notion Style Editor */}
             <div className="lg:col-span-8">
               {isEditing ? (
                 <Card className="bg-card border-border h-full flex flex-col">
@@ -362,6 +363,18 @@ export default function SecureInboxPage() {
                             onChange={(e) => setWriteupForm({...writeupForm, date: e.target.value})}
                           />
                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-code uppercase flex items-center gap-2">
+                          <Key className="h-3 w-3 text-primary" /> Captured Flag
+                        </Label>
+                        <Input 
+                          placeholder="e.g. picoCTF{flag_goes_here}"
+                          value={writeupForm.flag}
+                          onChange={(e) => setWriteupForm({...writeupForm, flag: e.target.value})}
+                          className="font-code text-primary"
+                        />
                       </div>
 
                       <div className="space-y-2">
