@@ -11,18 +11,16 @@ service cloud.firestore {
 
     /**
      * @description Rules for secure messages. 
-     * Visitors can create messages. Reading is restricted.
+     * Visitors can create messages. Reading is allowed for the simulated password-gated dashboard.
      */
     match /users/{ownerId}/secureMessages/{messageId} {
-      // Allow visitors to send messages
       allow create: if true;
-      // Allow reading only if authenticated (for the owner dashboard)
       allow read, list: if true; 
     }
 
     /**
      * @description Rules for access logs.
-     * Anyone can create a log (to record their access).
+     * Anyone can create a log and read them for the simulated dashboard.
      */
     match /securePageAccessLogs/{logId} {
       allow create: if true;
