@@ -12,8 +12,8 @@ import { cn } from "@/lib/utils"
 
 const roles = [
   { text: "CTF Player", color: "text-primary neon-glow" },
-  { text: "Programmer", color: "text-secondary neon-glow" },
-  { text: "Student", color: "text-accent neon-glow font-bold" },
+  { text: "A Programmer", color: "text-secondary neon-glow" },
+  { text: "A Student", color: "text-accent neon-glow font-bold" },
 ]
 
 export default function Home() {
@@ -63,7 +63,7 @@ export default function Home() {
 
             <p className="text-xl text-muted-foreground max-w-lg h-20">
               <TerminalText 
-                text="Professional CTF enthusiast and cybersecurity researcher specializing in web penetration testing."
+                text="Student developer focused on Cybersecurity and Software Engineering. Passionate about CTF competitions, digital forensics, and building useful applications."
                 speed={50}
                 delay={1000}
               />
