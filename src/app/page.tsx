@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils"
 
 const roles = [
   { text: "CTF Player", color: "text-primary neon-glow" },
-  { text: "Programmer", color: "text-secondary" },
-  { text: "Student", color: "text-accent font-bold" },
+  { text: "Programmer", color: "text-secondary neon-glow" },
+  { text: "Student", color: "text-accent neon-glow font-bold" },
 ]
 
 export default function Home() {

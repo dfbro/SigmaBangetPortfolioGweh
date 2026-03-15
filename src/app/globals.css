@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -79,7 +80,7 @@
 }
 
 .neon-glow {
-  text-shadow: 0 0 10px hsl(var(--primary) / 0.5), 0 0 20px hsl(var(--primary) / 0.3);
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
 }
 
 .neon-border {
