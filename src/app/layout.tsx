@@ -3,6 +3,7 @@ import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import { Toaster } from '@/components/ui/toaster';
 import { TVEffect } from '@/components/TVEffect';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'Elaang\'s Portfolio | Cybersecurity Specialist',
@@ -22,12 +23,14 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground min-h-screen selection:bg-primary/30 selection:text-primary">
-        <TVEffect />
-        <Navbar />
-        <main className="pt-16">
-          {children}
-        </main>
-        <Toaster />
+        <FirebaseClientProvider>
+          <TVEffect />
+          <Navbar />
+          <main className="pt-16">
+            {children}
+          </main>
+          <Toaster />
+        </FirebaseClientProvider>
       </body>
     </html>
   );
