@@ -125,10 +125,10 @@ export default function SecureInboxPage() {
     setIsEditing(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: string | null | undefined) => {
     if (!id) return;
     
-    if (window.confirm("Confirm deletion of this record?")) {
+    if (window.confirm("Confirm deletion of this record? This cannot be undone.")) {
       const docRef = doc(db, "ctfWriteups", id)
       deleteDocumentNonBlocking(docRef)
       
@@ -286,7 +286,15 @@ export default function SecureInboxPage() {
                           <p className="text-[10px] text-muted-foreground font-code">{w.category} • {w.competition}</p>
                         </div>
                         <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(w.id); }}>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-destructive hover:bg-destructive/10" 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              handleDelete(w.id); 
+                            }}
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
