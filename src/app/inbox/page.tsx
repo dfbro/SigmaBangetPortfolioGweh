@@ -17,6 +17,7 @@ import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { format } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 export default function SecureInboxPage() {
   const { toast } = useToast()
