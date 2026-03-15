@@ -5,37 +5,44 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { TerminalText } from "@/components/TerminalText"
 import { GlitchText } from "@/components/GlitchText"
-import { Shield, Terminal, Zap, Lock, ChevronRight } from "lucide-react"
+import { Shield, Terminal, Zap, Lock, ChevronRight, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 const roles = [
   { text: "CTF Player", color: "text-primary neon-glow" },
   { text: "Programmer", color: "text-secondary" },
-  { text: "Student", color: "text-accent" },
+  { text: "Student", color: "text-accent font-bold" },
 ]
 
 export default function Home() {
   const [currentRoleIndex, setCurrentRoleIndex] = React.useState(0)
   const [name, setName] = React.useState("Elang")
+  const [terminalLoaded, setTerminalLoaded] = React.useState(false)
 
-  // Rotate roles every 6 seconds
+  // Rotate roles with typing effect speed and long pause
   React.useEffect(() => {
     const roleInterval = setInterval(() => {
       setCurrentRoleIndex((prev) => (prev + 1) % roles.length)
-    }, 6000)
+    }, 8000) // Increased rotation cycle
     return () => clearInterval(roleInterval)
   }, [])
 
-  // Glitch name to Claritys every 7 seconds
+  // Glitch name to Claritys every 7 seconds for a brief moment
   React.useEffect(() => {
     const nameGlitchInterval = setInterval(() => {
       setName("Claritys")
-      // Quick return to Elang after the glitch completes
       setTimeout(() => {
         setName("Elang")
-      }, 1000)
+      }, 1200) // Brief glitch duration
     }, 7000)
     return () => clearInterval(nameGlitchInterval)
+  }, [])
+
+  // Simulated terminal data fetching
+  React.useEffect(() => {
+    const timer = setTimeout(() => setTerminalLoaded(true), 3500)
+    return () => clearTimeout(timer)
   }, [])
 
   return (
@@ -61,6 +68,7 @@ export default function Home() {
                   key={`role-${currentRoleIndex}`} 
                   text={roles[currentRoleIndex].text} 
                   speed={120}
+                  delay={500}
                   className={roles[currentRoleIndex].color}
                 />
               </div>
@@ -68,9 +76,9 @@ export default function Home() {
 
             <p className="text-xl text-muted-foreground max-w-lg h-20">
               <TerminalText 
-                text="Professional CTF enthusiast and cybersecurity researcher specializing in web penetration testing and cryptanalysis."
-                speed={40}
-                delay={1500}
+                text="Professional CTF enthusiast and cybersecurity researcher specializing in web penetration testing."
+                speed={50}
+                delay={1000}
               />
             </p>
 
@@ -119,17 +127,29 @@ export default function Home() {
                   <p className="text-primary">$ whoami</p>
                   <p className="text-foreground">Elang [Security Enthusiast]</p>
                   <p className="text-primary pt-2">$ cat skill-matrix.json</p>
-                  <div className="pl-4 text-primary brightness-200 font-bold space-y-1">
+                  <div className="pl-4 text-primary brightness-150 font-bold space-y-1">
                     <p>{"{"}</p>
                     <p className="pl-4">"web": ["XSS", "SQLi", "SSRF"],</p>
                     <p className="pl-4">"pwn": ["Buffer Overflow", "ROP"],</p>
                     <p className="pl-4">"rev": ["x86-64", "MIPS"]</p>
                     <p>{"}"}</p>
                   </div>
-                  <p className="text-primary pt-2">$ loading ctf-latest...</p>
+                  <p className="text-primary pt-2">$ {terminalLoaded ? "cat latest-activity.log" : "loading ctf-latest..."}</p>
                   <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-primary w-2/3 animate-pulse" />
+                    <div className={cn(
+                      "h-full bg-primary transition-all duration-1000",
+                      terminalLoaded ? "w-full" : "w-2/3 animate-pulse"
+                    )} />
                   </div>
+                  {terminalLoaded && (
+                    <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-700">
+                      <div className="flex items-center space-x-2 text-xs text-secondary">
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span>SUCCESS: Retrieved "SQLi to RCE on Legacy CMS"</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1 ml-5">Status: Published | Competition: PicoCTF</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
