@@ -57,6 +57,15 @@ export default function AboutPage() {
                 </div>
               </div>
             </div>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <GraduationCap className="h-5 w-5 text-primary shrink-0" />
+                <div>
+                  <p className="text-sm font-bold">B.Sc Computer Science</p>
+                  <p className="text-xs text-muted-foreground">Tech University, 2022</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
