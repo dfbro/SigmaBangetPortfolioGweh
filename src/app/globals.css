@@ -5,28 +5,28 @@
 @layer base {
   :root {
     /* Light Mode */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover-foreground: 222.2 84% 4.9%;
     --primary: 142 76% 36%;
-    --primary-foreground: 355.7 100% 97.3%;
+    --primary-foreground: 210 40% 98%;
     --secondary: 199 89% 48%;
-    --secondary-foreground: 240 10% 3.9%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 45 100% 45%;
-    --accent-foreground: 240 10% 3.9%;
+    --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
     --ring: 142 76% 36%;
     --radius: 0.5rem;
     --bg-gradient-start: #f8fafc;
-    --bg-gradient-end: #e2e8f0;
+    --bg-gradient-end: #cbd5e1;
   }
 
   .dark {
@@ -62,6 +62,9 @@
   body {
     @apply text-foreground font-body transition-colors duration-300 antialiased;
     background: radial-gradient(circle at 50% 50%, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-size: cover;
     min-height: 100vh;
   }
   h1, h2, h3, h4, h5, h6 {
