@@ -141,7 +141,7 @@ export default function SecureInboxPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
-        <div className="w-full max-w-md relative rounded-xl border border-border p-1">
+        <div className="w-full max-md relative rounded-xl border border-border p-1">
           <GlowingEffect spread={40} glow={true} disabled={false} />
           <Card className="relative bg-card border-none">
             <CardHeader className="text-center">
@@ -282,7 +282,7 @@ export default function SecureInboxPage() {
                     ) : (
                       <div className="space-y-2">
                         <Input type="file" accept="image/*" onChange={e => handleImageUpload(e, (url) => setProjectForm({...projectForm, imageUrl: url}))} className="cursor-pointer" />
-                        <p className="text-[10px] text-muted-foreground">Max recommendation: 1MB. Local upload will be encoded as Base64.</p>
+                        <p className="text-[10px] text-muted-foreground">Local upload will be encoded as Base64.</p>
                       </div>
                     )}
                     {projectForm.imageUrl && (
