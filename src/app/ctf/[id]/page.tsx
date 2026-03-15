@@ -163,7 +163,7 @@ export default function WriteupDetailPage() {
               Flag Captured
             </h3>
             <div className="p-4 bg-primary/10 border border-primary/30 rounded font-code text-center text-primary font-bold">
-              CTF{5ql_1nj3ct10n_m4st3r_9981}
+              {"CTF{5ql_1nj3ct10n_m4st3r_9981}"}
             </div>
           </section>
         </article>
