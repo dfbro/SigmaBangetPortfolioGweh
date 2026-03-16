@@ -3,58 +3,97 @@
 
 import * as React from "react"
 import { Terminal, ShieldCheck } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export function ShellIntro({ onComplete }: { onComplete: () => void }) {
   const [input, setInput] = React.useState("")
-  const [history, setHistory] = React.useState<string[]>([
+  const [history, setHistory] = React.useState<string[]>([])
+  const [isAuthorized, setIsAuthorized] = React.useState(false)
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  const bootLines = [
     "INITIALIZING SECURE UPLINK...",
     "NODE ESTABLISHED AT 127.0.0.1",
     "ENCRYPTION: AES-256-GCM ACTIVE",
     "----------------------------------------",
     "WELCOME TO CLARITY_NODE V2.0.4",
     "SYSTEM STATUS: RESTRICTED ACCESS",
-    "TYPE './letmein' TO AUTHORIZE SESSION",
     "----------------------------------------"
-  ])
-  const [isAuthorized, setIsAuthorized] = React.useState(false)
-  const scrollRef = React.useRef<HTMLDivElement>(null)
+  ]
 
+  // Handle auto-scroll
   React.useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [history])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      const command = input.trim().toLowerCase()
-      setHistory(prev => [...prev, `$ ${input}`])
-      
-      if (command === "./letmein") {
-        setHistory(prev => [
-          ...prev, 
-          "AUTHORIZING...", 
-          "IDENTITY VERIFIED.", 
-          "DECRYPTING PORTFOLIO SIGNAL..."
-        ])
-        setIsAuthorized(true)
-        setTimeout(() => {
-          onComplete()
-        }, 1500)
-      } else if (command === "help") {
-        setHistory(prev => [...prev, "Available commands: ./letmein, help, clear"])
-      } else if (command === "clear") {
-        setHistory([])
+  // Initial Boot Sequence
+  React.useEffect(() => {
+    let currentLine = 0
+    const interval = setInterval(() => {
+      if (currentLine < bootLines.length) {
+        setHistory(prev => [...prev, bootLines[currentLine]])
+        currentLine++
       } else {
-        setHistory(prev => [...prev, `sh: command not found: ${command}`])
+        clearInterval(interval)
+        // Start auto-typing after 3 seconds of boot completion
+        setTimeout(() => {
+          startAutoTyping()
+        }, 1500)
       }
-      setInput("")
+    }, 200)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const startAutoTyping = () => {
+    const command = "./letmein"
+    let i = 0
+    const typeInterval = setInterval(() => {
+      if (i <= command.length) {
+        setInput(command.slice(0, i))
+        i++
+      } else {
+        clearInterval(typeInterval)
+        // Execute command
+        setTimeout(() => {
+          handleExecute("./letmein")
+        }, 500)
+      }
+    }, 100)
+  }
+
+  const handleExecute = (cmd: string) => {
+    const cleanCmd = cmd.trim().toLowerCase()
+    setHistory(prev => [...prev, `$ ${cmd}`])
+    
+    if (cleanCmd === "./letmein") {
+      setHistory(prev => [
+        ...prev, 
+        "AUTHORIZING...", 
+        "IDENTITY VERIFIED.", 
+        "DECRYPTING PORTFOLIO SIGNAL..."
+      ])
+      setIsAuthorized(true)
+      setTimeout(() => {
+        onComplete()
+      }, 1000)
+    } else {
+      setHistory(prev => [...prev, `sh: command not found: ${cleanCmd}`])
+    }
+    setInput("")
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isAuthorized) {
+      handleExecute(input)
     }
   }
 
   return (
     <div className="fixed inset-0 z-[200] bg-black font-code p-6 flex flex-col items-center justify-center overflow-hidden selection:bg-primary/30 selection:text-primary">
-      <div className="w-full max-w-2xl h-[400px] flex flex-col border border-primary/20 bg-black/50 p-6 rounded-lg shadow-[0_0_30px_rgba(34,197,94,0.1)]">
+      <div className="w-full max-w-2xl h-[450px] flex flex-col border border-primary/20 bg-black/50 p-6 rounded-lg shadow-[0_0_30px_rgba(34,197,94,0.1)]">
         <div 
           ref={scrollRef}
           className="flex-1 overflow-y-auto space-y-1 mb-4 scrollbar-hide text-sm md:text-base"
@@ -64,14 +103,14 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
               key={i} 
               className={cn(
                 "animate-in fade-in slide-in-from-left-2 duration-300",
-                line.startsWith("IDENTITY") ? "text-primary font-bold" : 
+                line.startsWith("IDENTITY") || line.startsWith("DECRYPTING") ? "text-primary font-bold" : 
                 line.startsWith("$") ? "text-secondary" : "text-primary/80"
               )}
             >
               {line}
             </div>
           ))}
-          {!isAuthorized && (
+          {!isAuthorized && history.length >= bootLines.length && (
             <div className="flex items-center w-full text-primary mt-2">
               <span className="mr-2 text-secondary">$</span>
               <input
@@ -82,6 +121,7 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
                 onKeyDown={handleKeyDown}
                 spellCheck={false}
                 autoComplete="off"
+                readOnly={isAuthorized}
               />
             </div>
           )}
@@ -104,5 +144,3 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
     </div>
   )
 }
-
-import { cn } from "@/lib/utils"
