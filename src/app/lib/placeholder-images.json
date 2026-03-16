@@ -8,6 +8,12 @@
       "imageHint": "cybersecurity network"
     },
     {
+      "id": "profile-image",
+      "description": "User profile photo",
+      "imageUrl": "/profile.jpg",
+      "imageHint": "professional profile"
+    },
+    {
       "id": "project-1",
       "description": "Automated Vulnerability Scanner tool",
       "imageUrl": "https://picsum.photos/seed/cipher2/600/400",

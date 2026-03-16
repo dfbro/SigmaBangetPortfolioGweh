@@ -58,6 +58,7 @@ export default function Home() {
 
     if (activities.length === 0) return null;
 
+    // Return the absolute latest among all categories
     return activities.sort((a, b) => b.date.getTime() - a.date.getTime())[0];
   }, [writeups, projects, achievements]);
 

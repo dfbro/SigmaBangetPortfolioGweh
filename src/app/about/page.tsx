@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { User, Terminal, Briefcase, GraduationCap, Code2, Globe, Instagram, Heart } from "lucide-react"
 import Image from "next/image"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
+import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 const skills = [
   { name: "Web Application Security", level: 65 },
@@ -19,6 +20,8 @@ const skills = [
 ]
 
 export default function AboutPage() {
+  const profileImageData = PlaceHolderImages.find(img => img.id === "profile-image");
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="grid md:grid-cols-3 gap-8 md:gap-12">
@@ -32,12 +35,13 @@ export default function AboutPage() {
             />
             <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-primary/50 bg-muted">
               <Image
-                src="https://picsum.photos/seed/profile/600/600" 
+                src={profileImageData?.imageUrl || "/profile.jpg"} 
                 alt="Profile" 
                 width={600}
                 height={600}
                 className="object-cover grayscale"
-                data-ai-hint="professional profile"
+                data-ai-hint={profileImageData?.imageHint || "professional profile"}
+                priority
               />
             </div>
           </div>
