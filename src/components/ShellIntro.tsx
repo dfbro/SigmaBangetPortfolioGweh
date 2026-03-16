@@ -37,10 +37,10 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
         currentLine++
       } else {
         clearInterval(interval)
-        // Start auto-typing after 3 seconds of boot completion
+        // Start auto-typing after 6 seconds of boot completion (as requested)
         setTimeout(() => {
           startAutoTyping()
-        }, 1500)
+        }, 6000)
       }
     }, 200)
 
@@ -65,6 +65,7 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
   }
 
   const handleExecute = (cmd: string) => {
+    if (!cmd) return;
     const cleanCmd = cmd.trim().toLowerCase()
     setHistory(prev => [...prev, `$ ${cmd}`])
     
@@ -103,8 +104,8 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
               key={i} 
               className={cn(
                 "animate-in fade-in slide-in-from-left-2 duration-300",
-                line.startsWith("IDENTITY") || line.startsWith("DECRYPTING") ? "text-primary font-bold" : 
-                line.startsWith("$") ? "text-secondary" : "text-primary/80"
+                line && (line.startsWith("IDENTITY") || line.startsWith("DECRYPTING")) ? "text-primary font-bold" : 
+                line && line.startsWith("$") ? "text-secondary" : "text-primary/80"
               )}
             >
               {line}
