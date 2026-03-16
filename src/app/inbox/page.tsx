@@ -53,7 +53,7 @@ export default function SecureInboxPage() {
   })
 
   const [projectForm, setProjectForm] = React.useState({
-    title: "", description: "", imageUrl: "", category: "Security Tooling", tags: ""
+    title: "", description: "", imageUrl: "", projectUrl: "", category: "Security Tooling", tags: ""
   })
 
   const [achievementForm, setAchievementForm] = React.useState({
@@ -152,7 +152,7 @@ export default function SecureInboxPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
-        <div className="w-full max-md relative rounded-xl border border-border p-1">
+        <div className="w-full max-w-md relative rounded-xl border border-border p-1">
           <GlowingEffect spread={40} glow={true} disabled={false} />
           <Card className="relative bg-card border-none">
             <CardHeader className="text-center">
@@ -258,13 +258,13 @@ export default function SecureInboxPage() {
         <TabsContent value="projects">
           <div className="grid lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 space-y-4">
-              <Button onClick={() => { setEditMode("project"); setEditingId(null); setProjectForm({title: "", description: "", imageUrl: "", category: "Security Tooling", tags: ""}) }} className="w-full bg-primary/20 text-primary border border-primary/30">
+              <Button onClick={() => { setEditMode("project"); setEditingId(null); setProjectForm({title: "", description: "", imageUrl: "", projectUrl: "", category: "Security Tooling", tags: ""}) }} className="w-full bg-primary/20 text-primary border border-primary/30">
                 <Plus className="h-4 w-4 mr-2" /> New Project
               </Button>
               <ScrollArea className="h-[600px] border rounded-lg bg-card/30">
                 <div className="p-4 space-y-2">
                   {projectsLoading ? <Loader2 className="animate-spin mx-auto mt-10" /> : projects?.map(p => (
-                    <div key={p.id} className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", editingId === p.id ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")} onClick={() => { setEditMode("project"); setEditingId(p.id); setProjectForm({ title: p.title || "", description: p.description || "", imageUrl: p.imageUrl || "", category: p.category || "Security Tooling", tags: (p.tags || []).join(', ') }) }}>
+                    <div key={p.id} className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", editingId === p.id ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")} onClick={() => { setEditMode("project"); setEditingId(p.id); setProjectForm({ title: p.title || "", description: p.description || "", imageUrl: p.imageUrl || "", projectUrl: p.projectUrl || "", category: p.category || "Security Tooling", tags: (p.tags || []).join(', ') }) }}>
                       <div className="truncate"><p className="text-sm font-bold truncate">{p.title}</p><p className="text-[10px] text-muted-foreground">{p.category}</p></div>
                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); triggerDelete(p.id, "projects") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
@@ -279,6 +279,7 @@ export default function SecureInboxPage() {
                     <div className="space-y-2"><Label>Project Title</Label><Input value={projectForm.title || ""} onChange={e => setProjectForm({...projectForm, title: e.target.value})} /></div>
                     <div className="space-y-2"><Label>Category</Label><Input value={projectForm.category || ""} onChange={e => setProjectForm({...projectForm, category: e.target.value})} /></div>
                   </div>
+                  <div className="space-y-2"><Label>Project URL (GitHub/Live Demo)</Label><Input placeholder="https://github.com/..." value={projectForm.projectUrl || ""} onChange={e => setProjectForm({...projectForm, projectUrl: e.target.value})} /></div>
                   <div className="space-y-4 border-y py-4 my-2">
                     <div className="flex items-center justify-between mb-2">
                       <Label className="font-bold text-primary">Media Asset</Label>

@@ -3,9 +3,8 @@
 
 import * as React from "react"
 import { Badge } from "@/components/ui/badge"
-import { Cpu, ShieldCheck, Lock, Box, Settings, Sparkles, Search, Loader2, ExternalLink } from "lucide-react"
+import { Cpu, ShieldCheck, Box, Loader2, ExternalLink } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
-import { cn } from "@/lib/utils"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, orderBy } from "firebase/firestore"
 
@@ -14,7 +13,6 @@ export default function ProjectsPage() {
   const projectsQuery = useMemoFirebase(() => query(collection(db, "projects"), orderBy("createdAt", "desc")), [db])
   const { data: dbProjects, isLoading } = useCollection(projectsQuery)
 
-  // Use Firestore data if available, otherwise show empty or skeleton
   const displayProjects = dbProjects || []
 
   return (
@@ -48,13 +46,26 @@ export default function ProjectsPage() {
                   inactiveZone={0.01}
                   borderWidth={3}
                 />
-                <div className="relative flex h-full flex-col overflow-hidden rounded-xl border-[0.75px] bg-background p-5 md:p-6 shadow-sm">
+                <a 
+                  href={project.projectUrl || "#"} 
+                  target={project.projectUrl ? "_blank" : "_self"} 
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "relative flex h-full flex-col overflow-hidden rounded-xl border-[0.75px] bg-background p-5 md:p-6 shadow-sm transition-all",
+                    project.projectUrl ? "cursor-pointer hover:border-primary/50" : "cursor-default"
+                  )}
+                >
                   <div className="relative h-48 mb-6 rounded-lg overflow-hidden border border-border/50 bg-muted/20">
                     {project.imageUrl ? (
                       <img src={project.imageUrl} alt={project.title} className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Box className="h-12 w-12 text-muted-foreground opacity-20" />
+                      </div>
+                    )}
+                    {project.projectUrl && (
+                      <div className="absolute top-3 right-3 bg-background/80 backdrop-blur-sm p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ExternalLink className="h-4 w-4 text-primary" />
                       </div>
                     )}
                   </div>
@@ -78,7 +89,7 @@ export default function ProjectsPage() {
                       </span>
                     ))}
                   </div>
-                </div>
+                </a>
               </div>
             </li>
           ))}
@@ -102,3 +113,5 @@ export default function ProjectsPage() {
     </div>
   )
 }
+
+import { cn } from "@/lib/utils"

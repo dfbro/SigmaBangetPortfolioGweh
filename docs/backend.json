@@ -58,6 +58,7 @@
         "title": { "type": "string" },
         "description": { "type": "string" },
         "imageUrl": { "type": "string" },
+        "projectUrl": { "type": "string", "description": "External link to the project (e.g., GitHub, live demo)." },
         "category": { "type": "string" },
         "tags": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
