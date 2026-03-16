@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Mail, Github, MessageSquare, Send, Globe, Shield, Instagram } from "lucide-react"
+import { Mail, Github, MessageSquare, Send, Globe, Shield, Instagram, Terminal } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore } from "@/firebase"
