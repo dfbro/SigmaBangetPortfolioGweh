@@ -3,8 +3,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { User, Terminal, Briefcase, GraduationCap, Code2, Globe, Heart, Instagram } from "lucide-react"
-import awd from "./awd.png";
+import { User, Terminal, Briefcase, GraduationCap, Code2, Globe, Instagram } from "lucide-react"
 import Image from "next/image"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 
@@ -31,10 +30,12 @@ export default function AboutPage() {
               spread={40}
               glow={true}
             />
-            <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-primary/50">
+            <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-primary/50 bg-muted">
               <Image
-                src={awd} 
+                src="https://picsum.photos/seed/profile/600/600" 
                 alt="Profile" 
+                width={600}
+                height={600}
                 className="object-cover grayscale"
                 data-ai-hint="professional profile"
               />
@@ -85,10 +86,7 @@ export default function AboutPage() {
             </div>
             <h1 className="text-3xl md:text-5xl font-headline font-bold">Hi, I'm <span className="text-primary neon-glow">Elang Dimas Syadewa</span></h1>
             <p className="text-base md:text-xl text-muted-foreground leading-relaxed">
-              I am a dedicated cybersecurity professional with a passion for offensive security and CTF competitions. 
-              My journey began in the terminal, exploring vulnerabilities and building secure systems.
-              Today, I focus on helping organizations fortify their digital infrastructure through 
-              adversarial testing and secure development practices.
+              I'm a student passionate about cybersecurity, software, and web development. I enjoy solving complex problems, building projects, and exploring new technologies. Through Capture The Flag (CTF) challenges and coding projects, I continuously sharpen my skills in analysis, problem-solving, and developing practical solutions, while also improving my communication, collaboration, and adaptability.
             </p>
           </div>
 
@@ -175,16 +173,6 @@ export default function AboutPage() {
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="p-4 md:p-6 rounded-lg bg-primary/5 border border-primary/20 space-y-4">
-            <h3 className="text-lg font-headline font-bold flex items-center">
-              <Heart className="h-5 w-5 mr-2 text-primary" />
-              Philosophy
-            </h3>
-            <p className="text-sm text-muted-foreground italic">
-              "Sorry, Wish We Could Go To The Moon Together." -D. M.
-            </p>
           </div>
         </div>
       </div>

@@ -153,11 +153,11 @@ export default function SecureInboxPage() {
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-code uppercase">Identifier</Label>
-                  <Input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+                  <Input placeholder="Username" value={username || ""} onChange={(e) => setUsername(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-code uppercase">Security Key</Label>
-                  <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                  <Input type="password" placeholder="Password" value={password || ""} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
                 <Button type="submit" className="w-full bg-primary font-bold">AUTHORIZE ACCESS</Button>
               </form>
