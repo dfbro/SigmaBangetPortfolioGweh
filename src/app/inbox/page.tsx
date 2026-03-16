@@ -152,7 +152,7 @@ export default function SecureInboxPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
-        <div className="w-full max-w-md relative rounded-xl border border-border p-1">
+        <div className="w-full max-md relative rounded-xl border border-border p-1">
           <GlowingEffect spread={40} glow={true} disabled={false} />
           <Card className="relative bg-card border-none">
             <CardHeader className="text-center">
