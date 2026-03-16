@@ -27,12 +27,7 @@ export default function AboutPage() {
       <div className="grid md:grid-cols-3 gap-8 md:gap-12">
         <div className="md:col-span-1 space-y-8">
           <div className="relative group p-1 rounded-xl border border-border max-w-[300px] mx-auto md:max-w-none">
-            <GlowingEffect
-              disabled={false}
-              proximity={64}
-              spread={40}
-              glow={true}
-            />
+            <GlowingEffect disabled={false} proximity={64} spread={40} glow={true} />
             <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-primary/50 bg-muted">
               <Image
                 src={profileImageData?.imageUrl || "/profile.jpg"} 
@@ -95,16 +90,10 @@ export default function AboutPage() {
           </div>
 
           <div className="relative group p-1 rounded-xl border border-border">
-            <GlowingEffect
-              disabled={false}
-              proximity={64}
-              spread={40}
-              glow={true}
-            />
+            <GlowingEffect disabled={false} proximity={64} spread={40} glow={true} />
             <div className="relative bg-background/60 backdrop-blur-sm p-4 md:p-6 rounded-lg">
               <h2 className="text-xl md:text-2xl font-headline font-bold flex items-center mb-6">
-                <Code2 className="h-6 w-6 mr-3 text-secondary" />
-                Technical Arsenal
+                <Code2 className="h-6 w-6 mr-3 text-secondary" />Technical Arsenal
               </h2>
               <div className="grid gap-6">
                 {skills.map((skill) => (
@@ -122,47 +111,21 @@ export default function AboutPage() {
 
           <div className="space-y-6">
             <h2 className="text-xl md:text-2xl font-headline font-bold flex items-center justify-center md:justify-start">
-              <Briefcase className="h-6 w-6 mr-3 text-secondary" />
-              Professional Journey
+              <Briefcase className="h-6 w-6 mr-3 text-secondary" />Professional Journey
             </h2>
             <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
               {[
-                {
-                  role: "Early Interest in Technology",
-                  company: "Junior High School",
-                  period: "2024",
-                  desc: "I started my journey with a strong curiosity about computers and how digital systems work. This curiosity led me to explore programming and technology more deeply."
-                },
-                {
-                  role: "Discovering Cybersecurity & CTF",
-                  company: "Vocational High School",
-                  period: "2025",
-                  desc: "I later discovered cybersecurity through Capture The Flag (CTF) challenges, where I developed skills in problem solving, digital forensics, and security analysis."
-                },
-                {
-                  role: "Building Technical Skills",
-                  company: "Vocational High School",
-                  period: "2025 - Now",
-                  desc: "Alongside cybersecurity, I continue improving my programming and software development skills by working on projects and experimenting with new technologies."
-                },
-                {
-                  role: "Future Goals",
-                  company: "Vocational High School",
-                  period: "Now - Future",
-                  desc: "My goal is to grow as a professional in cybersecurity and software development while continuing to learn, build, and participate in technical challenges."
-                }
+                { role: "Early Interest in Technology", company: "Junior High School", period: "2024", desc: "I started my journey with a strong curiosity about computers and how digital systems work. This curiosity led me to explore programming and technology more deeply." },
+                { role: "Discovering Cybersecurity & CTF", company: "Vocational High School", period: "2025", desc: "I later discovered cybersecurity through Capture The Flag (CTF) challenges, where I developed skills in problem solving, digital forensics, and security analysis." },
+                { role: "Building Technical Skills", company: "Vocational High School", period: "2025 - Now", desc: "Alongside cybersecurity, I continue improving my programming and software development skills by working on projects and experimenting with new technologies." },
+                { role: "Future Goals", company: "Vocational High School", period: "Now - Future", desc: "My goal is to grow as a professional in cybersecurity and software development while continuing to learn, build, and participate in technical challenges." }
               ].map((job, idx) => (
                 <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
                   <div className="flex items-center justify-center w-10 h-10 rounded-full border border-border bg-card group-hover:border-primary transition-colors shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                     <div className="w-2 h-2 rounded-full bg-primary" />
                   </div>
                   <div className="relative w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-0.5 rounded-xl border border-border">
-                    <GlowingEffect
-                      disabled={false}
-                      proximity={64}
-                      spread={40}
-                      glow={true}
-                    />
+                    <GlowingEffect disabled={false} proximity={64} spread={40} glow={true} />
                     <Card className="relative bg-card/60 backdrop-blur-sm border-none hover:bg-card/80 transition-colors">
                       <CardContent className="p-4">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 gap-1">
@@ -180,14 +143,10 @@ export default function AboutPage() {
           </div>
           <div className="p-4 md:p-6 rounded-lg bg-primary/5 border border-primary/20 space-y-4">
             <h3 className="text-lg font-headline font-bold flex items-center">
-              <Heart className="h-5 w-5 mr-2 text-primary" />
-              Philosophy
+              <Heart className="h-5 w-5 mr-2 text-primary" />Philosophy
             </h3>
-            <p className="text-sm text-muted-foreground italic">
-              "Sorry, Wish We Could Go To The Moon Together." -D. M.
-            </p>
+            <p className="text-sm text-muted-foreground italic">"Sorry, Wish We Could Go To The Moon Together." -D. M.</p>
           </div>
-
         </div>
       </div>
     </div>

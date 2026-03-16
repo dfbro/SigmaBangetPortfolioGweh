@@ -40,11 +40,9 @@ export default function SecureInboxPage() {
   const [activeTab, setActiveTab] = React.useState("messages")
   const db = useFirestore()
 
-  // General Deletion State
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [itemToDelete, setItemToDelete] = React.useState<{id: string, collection: string} | null>(null)
 
-  // Form Editing State
   const [editMode, setEditMode] = React.useState<"writeup" | "project" | "achievement" | null>(null)
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [imageSource, setImageSource] = React.useState<"url" | "upload">("url")
@@ -79,7 +77,6 @@ export default function SecureInboxPage() {
     }
   }
 
-  // Queries
   const messagesQuery = useMemoFirebase(() => query(collection(db, "users", "admin", "secureMessages"), orderBy("createdAt", "desc")), [db])
   const logsQuery = useMemoFirebase(() => query(collection(db, "securePageAccessLogs"), orderBy("accessedAt", "desc")), [db])
   const writeupsQuery = useMemoFirebase(() => query(collection(db, "ctfWriteups"), orderBy("createdAt", "desc")), [db])
@@ -268,7 +265,6 @@ export default function SecureInboxPage() {
                     <div className="space-y-2"><Label>Project Title</Label><Input value={projectForm.title || ""} onChange={e => setProjectForm({...projectForm, title: e.target.value})} /></div>
                     <div className="space-y-2"><Label>Category</Label><Input value={projectForm.category || ""} onChange={e => setProjectForm({...projectForm, category: e.target.value})} /></div>
                   </div>
-                  
                   <div className="space-y-4 border-y py-4 my-2">
                     <div className="flex items-center justify-between mb-2">
                       <Label className="font-bold text-primary">Media Asset</Label>
@@ -278,7 +274,7 @@ export default function SecureInboxPage() {
                       </div>
                     </div>
                     {imageSource === "url" ? (
-                      <Input placeholder="https://image-source.com/assets/..." value={projectForm.imageUrl || ""} onChange={e => setProjectForm({...projectForm, imageUrl: e.target.value})} />
+                      <Input placeholder="https://..." value={projectForm.imageUrl || ""} onChange={e => setProjectForm({...projectForm, imageUrl: e.target.value})} />
                     ) : (
                       <div className="space-y-2">
                         <Input type="file" accept="image/*" onChange={e => handleImageUpload(e, (url) => setProjectForm({...projectForm, imageUrl: url}))} className="cursor-pointer" />
@@ -291,10 +287,8 @@ export default function SecureInboxPage() {
                       </div>
                     )}
                   </div>
-
                   <div className="space-y-2"><Label>Technical Description</Label><Textarea value={projectForm.description || ""} onChange={e => setProjectForm({...projectForm, description: e.target.value})} className="min-h-[120px]" /></div>
                   <div className="space-y-2"><Label>Stack Tags (comma separated)</Label><Input value={projectForm.tags || ""} onChange={e => setProjectForm({...projectForm, tags: e.target.value})} placeholder="React, Rust, Cryptography" /></div>
-                  
                   <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button onClick={saveProject}><Save className="h-4 w-4 mr-2" /> Save Project</Button></div>
                 </Card>
               ) : <div className="h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground p-20 text-center"><Cpu className="h-10 w-10 mb-4 opacity-20" /><p>Select a project node or create a new showcase asset.</p></div>}
@@ -330,7 +324,6 @@ export default function SecureInboxPage() {
                     <div className="space-y-2"><Label>Platform / Category</Label><Input value={achievementForm.platform || ""} onChange={e => setAchievementForm({...achievementForm, platform: e.target.value})} /></div>
                     <div className="space-y-2"><Label>Date Achieved</Label><Input value={achievementForm.date || ""} onChange={e => setAchievementForm({...achievementForm, date: e.target.value})} placeholder="e.g. Nov 2024" /></div>
                   </div>
-                  
                   <div className="space-y-4 border-y py-4 my-2">
                     <div className="flex items-center justify-between mb-2">
                       <Label className="font-bold text-primary">Credential Image</Label>
@@ -350,9 +343,7 @@ export default function SecureInboxPage() {
                       </div>
                     )}
                   </div>
-
                   <div className="space-y-2"><Label>Description / Context</Label><Textarea value={achievementForm.description || ""} onChange={e => setAchievementForm({...achievementForm, description: e.target.value})} /></div>
-                  
                   <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> Save Record</Button></div>
                 </Card>
               ) : <div className="h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground p-20 text-center"><Award className="h-10 w-10 mb-4 opacity-20" /><p>Select an achievement node or document a new milestone.</p></div>}
