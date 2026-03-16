@@ -3,7 +3,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { User, Terminal, Briefcase, GraduationCap, Code2, Globe, Instagram } from "lucide-react"
+import { User, Terminal, Briefcase, GraduationCap, Code2, Globe, Instagram, Heart } from "lucide-react"
 import Image from "next/image"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 
@@ -174,6 +174,16 @@ export default function AboutPage() {
               ))}
             </div>
           </div>
+          <div className="p-4 md:p-6 rounded-lg bg-primary/5 border border-primary/20 space-y-4">
+            <h3 className="text-lg font-headline font-bold flex items-center">
+              <Heart className="h-5 w-5 mr-2 text-primary" />
+              Philosophy
+            </h3>
+            <p className="text-sm text-muted-foreground italic">
+              "Sorry, Wish We Could Go To The Moon Together." -D. M.
+            </p>
+          </div>
+
         </div>
       </div>
     </div>
