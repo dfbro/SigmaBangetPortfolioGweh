@@ -9,6 +9,8 @@ import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { Shield, Zap, Lock, ChevronRight, CheckCircle2, User } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { collection } from "firebase/firestore"
 
 const roles = [
   { text: "CTF Player", color: "text-primary neon-glow" },
@@ -19,6 +21,21 @@ const roles = [
 export default function Home() {
   const [currentRoleIndex, setCurrentRoleIndex] = React.useState(0)
   const [terminalLoaded, setTerminalLoaded] = React.useState(false)
+
+  const db = useFirestore()
+  
+  // Dynamic stats calculation from Firestore
+  const writeupsRef = useMemoFirebase(() => collection(db, "ctfWriteups"), [db])
+  const projectsRef = useMemoFirebase(() => collection(db, "projects"), [db])
+  const achievementsRef = useMemoFirebase(() => collection(db, "achievements"), [db])
+
+  const { data: writeups } = useCollection(writeupsRef)
+  const { data: projects } = useCollection(projectsRef)
+  const { data: achievements } = useCollection(achievementsRef)
+
+  const writeupCount = writeups?.length || 0
+  const projectCount = projects?.length || 0
+  const achievementCount = achievements?.length || 0
 
   React.useEffect(() => {
     const roleInterval = setInterval(() => {
@@ -113,15 +130,15 @@ export default function Home() {
 
             <div className="grid grid-cols-3 gap-4 md:gap-8 pt-8 md:pt-12 border-t border-border/50">
               <div>
-                <p className="text-xl md:text-2xl font-bold font-headline text-foreground">50+</p>
-                <p className="text-[10px] md:text-sm text-muted-foreground uppercase tracking-wider">CTF Flags</p>
+                <p className="text-xl md:text-2xl font-bold font-headline text-foreground">{writeupCount}</p>
+                <p className="text-[10px] md:text-sm text-muted-foreground uppercase tracking-wider">CTF Write-ups</p>
               </div>
               <div>
-                <p className="text-xl md:text-2xl font-bold font-headline text-foreground">12</p>
-                <p className="text-[10px] md:text-sm text-muted-foreground uppercase tracking-wider">Open Source</p>
+                <p className="text-xl md:text-2xl font-bold font-headline text-foreground">{projectCount}</p>
+                <p className="text-[10px] md:text-sm text-muted-foreground uppercase tracking-wider">Projects</p>
               </div>
               <div>
-                <p className="text-xl md:text-2xl font-bold font-headline text-foreground">5</p>
+                <p className="text-xl md:text-2xl font-bold font-headline text-foreground">{achievementCount}</p>
                 <p className="text-[10px] md:text-sm text-muted-foreground uppercase tracking-wider">Certificates</p>
               </div>
             </div>
@@ -163,7 +180,7 @@ export default function Home() {
                       <p className="pl-4">"rev": ["x86-64", "MIPS"]</p>
                       <p>{"}"}</p>
                     </div>
-                    <p className="text-primary pt-2">$ {terminalLoaded ? "cat latest-activity.log" : "loading ctf-latest..."}</p>
+                    <p className="text-primary pt-2">$ {terminalLoaded ? "cat latest-activity.log" : "loading session-data..."}</p>
                     <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                       <div className={cn(
                         "h-full bg-primary transition-all duration-1000",
@@ -174,9 +191,9 @@ export default function Home() {
                       <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-700">
                         <div className="flex items-center space-x-2 text-[10px] md:text-xs text-secondary">
                           <CheckCircle2 className="h-3 w-3" />
-                          <span>SUCCESS: Retrieved "SQLi to RCE on Legacy CMS"</span>
+                          <span>SUCCESS: Node synchronization complete</span>
                         </div>
-                        <p className="text-[9px] md:text-[10px] text-muted-foreground mt-1 ml-5">Status: Published | Competition: PicoCTF</p>
+                        <p className="text-[9px] md:text-[10px] text-muted-foreground mt-1 ml-5">Status: Operational | Identity: Elang</p>
                       </div>
                     )}
                   </div>
