@@ -101,21 +101,35 @@ export default function SecureInboxPage() {
   }
 
   const saveWriteup = () => {
-    const data = { ...writeupForm, tags: writeupForm.tags.split(',').map(t => t.trim()).filter(Boolean), createdAt: new Date().toISOString() }
+    const existing = writeups?.find(w => w.id === editingId);
+    const data = { 
+      ...writeupForm, 
+      tags: writeupForm.tags.split(',').map(t => t.trim()).filter(Boolean), 
+      createdAt: existing?.createdAt || new Date().toISOString() 
+    }
     if (editingId) updateDocumentNonBlocking(doc(db, "ctfWriteups", editingId), data)
     else addDocumentNonBlocking(collection(db, "ctfWriteups"), data)
     toast({ title: "Write-up Saved" }); setEditMode(null); setEditingId(null);
   }
 
   const saveProject = () => {
-    const data = { ...projectForm, tags: projectForm.tags.split(',').map(t => t.trim()).filter(Boolean), createdAt: new Date().toISOString() }
+    const existing = projects?.find(p => p.id === editingId);
+    const data = { 
+      ...projectForm, 
+      tags: projectForm.tags.split(',').map(t => t.trim()).filter(Boolean), 
+      createdAt: existing?.createdAt || new Date().toISOString() 
+    }
     if (editingId) updateDocumentNonBlocking(doc(db, "projects", editingId), data)
     else addDocumentNonBlocking(collection(db, "projects"), data)
     toast({ title: "Project Saved" }); setEditMode(null); setEditingId(null);
   }
 
   const saveAchievement = () => {
-    const data = { ...achievementForm, createdAt: new Date().toISOString() }
+    const existing = achievements?.find(a => a.id === editingId);
+    const data = { 
+      ...achievementForm, 
+      createdAt: existing?.createdAt || new Date().toISOString() 
+    }
     if (editingId) updateDocumentNonBlocking(doc(db, "achievements", editingId), data)
     else addDocumentNonBlocking(collection(db, "achievements"), data)
     toast({ title: "Achievement Saved" }); setEditMode(null); setEditingId(null);
@@ -278,7 +292,7 @@ export default function SecureInboxPage() {
                     ) : (
                       <div className="space-y-2">
                         <Input type="file" accept="image/*" onChange={e => handleImageUpload(e, (url) => setProjectForm({...projectForm, imageUrl: url}))} className="cursor-pointer" />
-                        <p className="text-[10px] text-muted-foreground">Local upload will be encoded as Base64.</p>
+                        <p className="text-[10px] text-muted-foreground">Local upload will be encoded as Base64 string in Firestore.</p>
                       </div>
                     )}
                     {projectForm.imageUrl && (

@@ -24,7 +24,6 @@ export default function Home() {
 
   const db = useFirestore()
   
-  // Dynamic stats calculation from Firestore
   const writeupsRef = useMemoFirebase(() => collection(db, "ctfWriteups"), [db])
   const projectsRef = useMemoFirebase(() => collection(db, "projects"), [db])
   const achievementsRef = useMemoFirebase(() => collection(db, "achievements"), [db])
@@ -37,7 +36,6 @@ export default function Home() {
   const projectCount = projects?.length || 0
   const achievementCount = achievements?.length || 0
 
-  // Identify Latest Activity across all collections
   const latestActivity = React.useMemo(() => {
     const activities: { type: string; title: string; date: Date }[] = [];
     
