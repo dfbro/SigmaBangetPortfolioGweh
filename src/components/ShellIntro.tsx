@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Terminal, ShieldCheck } from "lucide-react"
+import { Terminal, ShieldCheck, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "motion/react"
 
@@ -12,6 +12,7 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
   const [isAuthorized, setIsAuthorized] = React.useState(false)
   const [isAutoTyping, setIsAutoTyping] = React.useState(false)
   const [isExiting, setIsExiting] = React.useState(false)
+  const [timeLeft, setTimeLeft] = React.useState<number | null>(null)
   const scrollRef = React.useRef<HTMLDivElement>(null)
 
   const bootLines = [
@@ -31,7 +32,7 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [history])
+  }, [history, timeLeft])
 
   // Initial Boot Sequence
   React.useEffect(() => {
@@ -42,19 +43,28 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
         currentLine++
       } else {
         clearInterval(interval)
-        // Tunggu 6 detik sebelum auto-typing dimulai
-        setTimeout(() => {
-          if (!isAuthorized) {
-            startAutoTyping()
-          }
-        }, 6000)
+        // Start countdown after boot sequence
+        setTimeLeft(6)
       }
     }, 200)
 
     return () => clearInterval(interval)
-  }, [isAuthorized])
+  }, [])
+
+  // Countdown Logic
+  React.useEffect(() => {
+    if (timeLeft === null || isAuthorized || isAutoTyping) return;
+
+    if (timeLeft > 0) {
+      const timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000)
+      return () => clearTimeout(timer)
+    } else {
+      startAutoTyping()
+    }
+  }, [timeLeft, isAuthorized, isAutoTyping])
 
   const startAutoTyping = () => {
+    if (isAutoTyping || isAuthorized) return;
     setIsAutoTyping(true)
     const command = "./letmein"
     let i = 0
@@ -145,6 +155,14 @@ export function ShellIntro({ onComplete }: { onComplete: () => void }) {
                   {line}
                 </div>
               ))}
+              
+              {timeLeft !== null && timeLeft > 0 && !isAutoTyping && !isAuthorized && (
+                <div className="text-secondary font-bold flex items-center gap-2 animate-pulse mt-2">
+                  <Clock className="h-4 w-4" />
+                  [SYSTEM] AUTO-AUTHORIZATION IN: {timeLeft}s
+                </div>
+              )}
+
               {!isAuthorized && history.length >= bootLines.length && (
                 <div className="flex items-center w-full text-primary mt-2">
                   <span className="mr-2 text-secondary">$</span>
