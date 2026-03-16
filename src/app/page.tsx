@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { TerminalText } from "@/components/TerminalText"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
-import { Shield, Zap, Lock, ChevronRight, CheckCircle2, User } from "lucide-react"
+import { Shield, Zap, Lock, ChevronRight, CheckCircle2, User, Activity } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection } from "firebase/firestore"
+import { collection, query, orderBy, limit } from "firebase/firestore"
 
 const roles = [
   { text: "CTF Player", color: "text-primary neon-glow" },
@@ -36,6 +36,30 @@ export default function Home() {
   const writeupCount = writeups?.length || 0
   const projectCount = projects?.length || 0
   const achievementCount = achievements?.length || 0
+
+  // Identify Latest Activity
+  const latestActivity = React.useMemo(() => {
+    const activities = [];
+    
+    if (writeups && writeups.length > 0) {
+      const latest = [...writeups].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      activities.push({ type: 'WRITE-UP', title: latest.title, date: new Date(latest.createdAt) });
+    }
+    
+    if (projects && projects.length > 0) {
+      const latest = [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      activities.push({ type: 'PROJECT', title: latest.title, date: new Date(latest.createdAt) });
+    }
+    
+    if (achievements && achievements.length > 0) {
+      const latest = [...achievements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      activities.push({ type: 'ACHIEVEMENT', title: latest.title, date: new Date(latest.createdAt) });
+    }
+
+    if (activities.length === 0) return null;
+
+    return activities.sort((a, b) => b.date.getTime() - a.date.getTime())[0];
+  }, [writeups, projects, achievements]);
 
   React.useEffect(() => {
     const roleInterval = setInterval(() => {
@@ -80,7 +104,7 @@ export default function Home() {
 
             <div className="text-base md:text-xl text-muted-foreground max-w-lg min-h-[5rem]">
               <TerminalText 
-                text="Student developer focused on Cybersecurity and Software Engineering. Passionate about CTF competitions, and building useful applications."
+                text="I'm a student passionate about cybersecurity, software, and web development. I enjoy solving complex problems, building projects, and exploring new technologies."
                 speed={50}
                 delay={700}
               />
@@ -131,7 +155,7 @@ export default function Home() {
             <div className="grid grid-cols-3 gap-4 md:gap-8 pt-8 md:pt-12 border-t border-border/50">
               <div>
                 <p className="text-xl md:text-2xl font-bold font-headline text-foreground">{writeupCount}</p>
-                <p className="text-[10px] md:text-sm text-muted-foreground uppercase tracking-wider">CTF Write-ups</p>
+                <p className="text-[10px] md:text-sm text-muted-foreground uppercase tracking-wider">Write-ups</p>
               </div>
               <div>
                 <p className="text-xl md:text-2xl font-bold font-headline text-foreground">{projectCount}</p>
@@ -178,7 +202,7 @@ export default function Home() {
                       <p className="pl-4">"web": ["XSS", "SQLi", "SSRF"],</p>
                       <p className="pl-4">"pwn": ["Buffer Overflow", "ROP"],</p>
                       <p className="pl-4">"rev": ["x86-64", "MIPS"],</p>
-                      <p className="pl-4">"foren": ["Memory", "Disk", "Network"]</p>
+                      <p className="pl-4">"foren": ["Memory", "Disk", "Network", "Stegano"]</p>
                       <p>{"}"}</p>
                     </div>
                     <p className="text-primary pt-2">$ {terminalLoaded ? "cat latest-activity.log" : "loading session-data..."}</p>
@@ -190,10 +214,23 @@ export default function Home() {
                     </div>
                     {terminalLoaded && (
                       <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-700">
-                        <div className="flex items-center space-x-2 text-[10px] md:text-xs text-secondary">
-                          <CheckCircle2 className="h-3 w-3" />
-                          <span>SUCCESS: Node synchronization complete</span>
-                        </div>
+                        {latestActivity ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2 text-[10px] md:text-xs text-secondary">
+                              <Activity className="h-3 w-3" />
+                              <span className="uppercase font-bold">LATEST {latestActivity.type}:</span>
+                              <span className="text-foreground truncate max-w-[200px]">{latestActivity.title}</span>
+                            </div>
+                            <p className="text-[9px] md:text-[10px] text-muted-foreground ml-5">
+                              Timestamp: {latestActivity.date.toLocaleString()}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2 text-[10px] md:text-xs text-secondary">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>SUCCESS: Node synchronization complete</span>
+                          </div>
+                        )}
                         <p className="text-[9px] md:text-[10px] text-muted-foreground mt-1 ml-5">Status: Operational | Identity: Elang</p>
                       </div>
                     )}
