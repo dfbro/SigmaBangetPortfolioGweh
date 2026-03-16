@@ -37,23 +37,23 @@ export default function Home() {
   const projectCount = projects?.length || 0
   const achievementCount = achievements?.length || 0
 
-  // Identify Latest Activity
+  // Identify Latest Activity across all collections
   const latestActivity = React.useMemo(() => {
-    const activities = [];
+    const activities: { type: string; title: string; date: Date }[] = [];
     
     if (writeups && writeups.length > 0) {
       const latest = [...writeups].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      activities.push({ type: 'WRITE-UP', title: latest.title, date: new Date(latest.createdAt) });
+      if (latest?.createdAt) activities.push({ type: 'WRITE-UP', title: latest.title, date: new Date(latest.createdAt) });
     }
     
     if (projects && projects.length > 0) {
       const latest = [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      activities.push({ type: 'PROJECT', title: latest.title, date: new Date(latest.createdAt) });
+      if (latest?.createdAt) activities.push({ type: 'PROJECT', title: latest.title, date: new Date(latest.createdAt) });
     }
     
     if (achievements && achievements.length > 0) {
       const latest = [...achievements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      activities.push({ type: 'ACHIEVEMENT', title: latest.title, date: new Date(latest.createdAt) });
+      if (latest?.createdAt) activities.push({ type: 'ACHIEVEMENT', title: latest.title, date: new Date(latest.createdAt) });
     }
 
     if (activities.length === 0) return null;

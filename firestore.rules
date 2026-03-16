@@ -2,21 +2,23 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Last Sync: 2024-05-24T15:00:00Z - Force Update Permissions
+    // Last Sync: 2024-05-24T15:30:00Z - Forced Deployment for Public Access
     
-    // Publicly readable collections
+    // Publicly readable collections for Portfolio visibility
     match /ctfWriteups/{writeupId} {
       allow read, list: if true;
-      allow write: if true; 
+      allow write: if true; // In production, restrict to authenticated admin
     }
     match /projects/{projectId} {
       allow read, list: if true;
-      allow write: if true;
+      allow write: if true; 
     }
     match /achievements/{achievementId} {
       allow read, list: if true;
       allow write: if true;
     }
+    
+    // Support and Admin logs
     match /securePageAccessLogs/{logId} {
       allow create, read, list: if true;
     }
