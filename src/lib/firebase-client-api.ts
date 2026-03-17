@@ -13,6 +13,7 @@ import {
   limit,
   orderBy,
   query,
+  setDoc,
   serverTimestamp,
   updateDoc,
   type DocumentData,
@@ -20,10 +21,12 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
+import { getDefaultProfileSettings, mergeProfileSettings, normalizeProfileSettings } from '@/lib/about-default';
 import type {
   AchievementRecord,
   HomeSummaryResponse,
   LatestActivityRecord,
+  ProfileSettingsRecord,
   ProjectRecord,
   SecureMessageRecord,
   WriteupRecord,
@@ -230,6 +233,21 @@ async function getPublicCollection<T>(db: Firestore, collectionName: string): Pr
   return snapshot.docs.map((docSnapshot) => mapQueryDocument<T>(docSnapshot));
 }
 
+async function getProfileSettingsDocument(db: Firestore): Promise<ProfileSettingsRecord> {
+  const snapshot = await getDoc(doc(db, 'settings', 'profile'));
+  if (!snapshot.exists()) {
+    return getDefaultProfileSettings();
+  }
+
+  const normalized = normalizeProfileSettings(snapshot.data() as Partial<ProfileSettingsRecord>);
+  const updatedAt = snapshot.data()?.updatedAt;
+
+  return {
+    ...normalized,
+    ...(typeof updatedAt === 'string' ? { updatedAt } : {}),
+  };
+}
+
 async function handleContactRoute<T>(db: Firestore, method: string, init?: RequestInit): Promise<FirebaseClientRouteResult<T>> {
   ensureMethod(method, ['POST']);
   const payload = parseJsonBody(init);
@@ -263,6 +281,30 @@ async function handleAdminCollectionRoute<T>(
   method: string,
   init?: RequestInit
 ): Promise<FirebaseClientRouteResult<T>> {
+  if (path === '/api/admin/profile') {
+    await requireAdminSession();
+
+    if (method === 'GET') {
+      return toHandled((await getProfileSettingsDocument(db)) as T);
+    }
+
+    if (method === 'PUT') {
+      const payload = parseJsonBody(init);
+      const existing = await getProfileSettingsDocument(db);
+      const merged = mergeProfileSettings(existing, payload as Partial<ProfileSettingsRecord>);
+      const updatedAt = new Date().toISOString();
+
+      await setDoc(doc(db, 'settings', 'profile'), {
+        ...merged,
+        updatedAt,
+      });
+
+      return toHandled({ ...merged, updatedAt } as T);
+    }
+
+    throw new Error('Request failed with status 405');
+  }
+
   const collectionMatch = path.match(/^\/api\/admin\/(writeups|projects|achievements)$/);
   if (collectionMatch) {
     const routeName = collectionMatch[1] as AdminCollectionRoute;
@@ -346,6 +388,11 @@ async function handlePublicRoute<T>(db: Firestore, path: string, method: string)
   if (path === '/api/public/summary') {
     ensureMethod(method, ['GET']);
     return toHandled((await getPublicSummary(db)) as T);
+  }
+
+  if (path === '/api/public/profile') {
+    ensureMethod(method, ['GET']);
+    return toHandled((await getProfileSettingsDocument(db)) as T);
   }
 
   if (path === '/api/public/projects') {

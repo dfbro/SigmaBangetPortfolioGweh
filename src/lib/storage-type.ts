@@ -2,7 +2,7 @@ const VALID_STORAGE_TYPES = ['firebase', 'sqlite'] as const;
 
 export type StorageType = (typeof VALID_STORAGE_TYPES)[number];
 
-const DEFAULT_STORAGE_TYPE: StorageType = 'firebase';
+const DEFAULT_STORAGE_TYPE: StorageType = 'sqlite';
 
 function isStorageType(value: string): value is StorageType {
   return (VALID_STORAGE_TYPES as readonly string[]).includes(value);

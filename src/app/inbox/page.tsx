@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Cpu,
   Award,
+  User,
   Image as ImageIcon,
   Link as LinkIcon,
   LogOut,
@@ -30,10 +31,12 @@ import { format } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { fetchJson } from "@/lib/api-client"
+import { getDefaultProfileSettings, mergeProfileSettings } from "@/lib/about-default"
 import { getStorageType } from "@/lib/storage-type"
 import type {
   AccessLogRecord,
   AchievementRecord,
+  ProfileSettingsRecord,
   ProjectRecord,
   SecureMessageRecord,
   WriteupRecord,
@@ -95,6 +98,31 @@ interface AchievementFormState {
   date: string
 }
 
+interface TechnicalArsenalFormState {
+  name: string
+  level: number
+}
+
+interface ProfessionalJourneyFormState {
+  role: string
+  company: string
+  period: string
+  desc: string
+}
+
+interface ProfileFormState {
+  displayName: string
+  email: string
+  websiteUrl: string
+  githubUrl: string
+  instagramUrl: string
+  profileImageUrl: string
+  aboutText: string
+  philosophyText: string
+  technicalArsenal: TechnicalArsenalFormState[]
+  professionalJourney: ProfessionalJourneyFormState[]
+}
+
 function createEmptyWriteupForm(): WriteupFormState {
   return {
     title: "",
@@ -131,7 +159,36 @@ function createEmptyAchievementForm(): AchievementFormState {
   }
 }
 
-export default function SecureInboxPage() {
+function toProfileFormState(profile?: ProfileSettingsRecord | null): ProfileFormState {
+  const normalized = mergeProfileSettings(getDefaultProfileSettings(), profile ?? {})
+
+  return {
+    displayName: normalized.displayName ?? "My Name",
+    email: normalized.email ?? "email@domain.tld",
+    websiteUrl: normalized.websiteUrl ?? "https://domain.tld",
+    githubUrl: normalized.githubUrl ?? "http://github.com/github",
+    instagramUrl: normalized.instagramUrl ?? "https://www.instagram.com",
+    profileImageUrl: normalized.profileImageUrl ?? "/profile.jpg",
+    aboutText: normalized.aboutText ?? "",
+    philosophyText: normalized.philosophyText ?? "",
+    technicalArsenal: (normalized.technicalArsenal ?? []).map((item) => ({
+      name: item.name ?? "",
+      level: typeof item.level === "number" ? item.level : 0,
+    })),
+    professionalJourney: (normalized.professionalJourney ?? []).map((item) => ({
+      role: item.role ?? "",
+      company: item.company ?? "",
+      period: item.period ?? "",
+      desc: item.desc ?? "",
+    })),
+  }
+}
+
+function createEmptyProfileForm(): ProfileFormState {
+  return toProfileFormState()
+}
+
+export default function AdminPage() {
   const { toast } = useToast()
   const isFirebaseStorage = getStorageType() === "firebase"
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
@@ -154,10 +211,12 @@ export default function SecureInboxPage() {
   const [editMode, setEditMode] = React.useState<EditMode>(null)
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [imageSource, setImageSource] = React.useState<ImageSourceMode>("url")
+  const [profileImageSource, setProfileImageSource] = React.useState<ImageSourceMode>("url")
 
   const [writeupForm, setWriteupForm] = React.useState<WriteupFormState>(createEmptyWriteupForm)
   const [projectForm, setProjectForm] = React.useState<ProjectFormState>(createEmptyProjectForm)
   const [achievementForm, setAchievementForm] = React.useState<AchievementFormState>(createEmptyAchievementForm)
+  const [profileForm, setProfileForm] = React.useState<ProfileFormState>(createEmptyProfileForm)
 
   const resetDashboard = React.useCallback(() => {
     setMessages([])
@@ -172,7 +231,9 @@ export default function SecureInboxPage() {
     setWriteupForm(createEmptyWriteupForm())
     setProjectForm(createEmptyProjectForm())
     setAchievementForm(createEmptyAchievementForm())
+    setProfileForm(createEmptyProfileForm())
     setImageSource("url")
+    setProfileImageSource("url")
   }, [])
 
   const handleUnauthorized = React.useCallback(() => {
@@ -187,12 +248,13 @@ export default function SecureInboxPage() {
       setIsDataLoading(true)
 
       try {
-        const [nextMessages, nextLogs, nextWriteups, nextProjects, nextAchievements] = await Promise.all([
+        const [nextMessages, nextLogs, nextWriteups, nextProjects, nextAchievements, nextProfile] = await Promise.all([
           fetchJson<SecureMessageRecord[]>("/api/admin/messages"),
           fetchJson<AccessLogRecord[]>("/api/admin/logs"),
           fetchJson<WriteupRecord[]>("/api/admin/writeups"),
           fetchJson<ProjectRecord[]>("/api/admin/projects"),
           fetchJson<AchievementRecord[]>("/api/admin/achievements"),
+          fetchJson<ProfileSettingsRecord>("/api/admin/profile"),
         ])
 
         setMessages(nextMessages)
@@ -200,6 +262,7 @@ export default function SecureInboxPage() {
         setWriteups(nextWriteups)
         setProjects(nextProjects)
         setAchievements(nextAchievements)
+        setProfileForm(toProfileFormState(nextProfile))
         return true
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to load admin data."
@@ -514,6 +577,93 @@ export default function SecureInboxPage() {
     }
   }
 
+  const addTechnicalArsenalItem = () => {
+    setProfileForm((prev) => ({
+      ...prev,
+      technicalArsenal: [...prev.technicalArsenal, { name: "", level: 50 }],
+    }))
+  }
+
+  const updateTechnicalArsenalItem = (
+    index: number,
+    patch: Partial<TechnicalArsenalFormState>
+  ) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      technicalArsenal: prev.technicalArsenal.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item
+      ),
+    }))
+  }
+
+  const removeTechnicalArsenalItem = (index: number) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      technicalArsenal: prev.technicalArsenal.filter((_, itemIndex) => itemIndex !== index),
+    }))
+  }
+
+  const addProfessionalJourneyItem = () => {
+    setProfileForm((prev) => ({
+      ...prev,
+      professionalJourney: [
+        ...prev.professionalJourney,
+        { role: "", company: "", period: "", desc: "" },
+      ],
+    }))
+  }
+
+  const updateProfessionalJourneyItem = (
+    index: number,
+    patch: Partial<ProfessionalJourneyFormState>
+  ) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      professionalJourney: prev.professionalJourney.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item
+      ),
+    }))
+  }
+
+  const removeProfessionalJourneyItem = (index: number) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      professionalJourney: prev.professionalJourney.filter((_, itemIndex) => itemIndex !== index),
+    }))
+  }
+
+  const saveProfile = async () => {
+    const payloadToPersist = mergeProfileSettings(getDefaultProfileSettings(), {
+      ...profileForm,
+      technicalArsenal: profileForm.technicalArsenal.map((item) => ({
+        name: item.name,
+        level: Number.isFinite(item.level) ? item.level : 0,
+      })),
+      professionalJourney: profileForm.professionalJourney.map((item) => ({
+        role: item.role,
+        company: item.company,
+        period: item.period,
+        desc: item.desc,
+      })),
+    })
+
+    try {
+      const payload = await fetchJson<ProfileSettingsRecord>("/api/admin/profile", {
+        method: "PUT",
+        body: JSON.stringify(payloadToPersist),
+      })
+
+      setProfileForm(toProfileFormState(payload))
+      toast({ title: "Profile updated" })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Profile save failed",
+        description: error instanceof Error ? error.message : "Unable to persist profile settings.",
+      })
+    }
+  }
+
   const triggerDelete = (id: string, collection: DeleteCollection) => {
     setItemToDelete({ id, collection })
     setDeleteDialogOpen(true)
@@ -596,7 +746,7 @@ export default function SecureInboxPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
       <div className="flex justify-between items-center gap-4 flex-wrap">
-        <h1 className="text-3xl font-headline font-bold">Command Center</h1>
+        <h1 className="text-3xl font-headline font-bold">Admin Panel</h1>
         <div className="flex items-center gap-3">
           <div className="px-3 py-1 bg-muted rounded border text-xs font-code uppercase">User: {username}</div>
           <Button type="button" variant="outline" size="sm" onClick={handleLogout}>
@@ -611,6 +761,7 @@ export default function SecureInboxPage() {
           <TabsTrigger value="writeups" className="px-6 py-2"><Database className="h-4 w-4 mr-2" /> Write-ups</TabsTrigger>
           <TabsTrigger value="projects" className="px-6 py-2"><Cpu className="h-4 w-4 mr-2" /> Projects</TabsTrigger>
           <TabsTrigger value="achievements" className="px-6 py-2"><Award className="h-4 w-4 mr-2" /> Achievements</TabsTrigger>
+          <TabsTrigger value="profile" className="px-6 py-2"><User className="h-4 w-4 mr-2" /> Profile</TabsTrigger>
           <TabsTrigger value="logs" className="px-6 py-2"><History className="h-4 w-4 mr-2" /> Logs</TabsTrigger>
         </TabsList>
 
@@ -834,6 +985,287 @@ export default function SecureInboxPage() {
               )}
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="profile">
+          <Card className="bg-card/50">
+            <CardHeader className="bg-muted/30 border-b">
+              <CardTitle className="text-sm font-code flex items-center"><User className="h-4 w-4 mr-2" /> About Profile Settings</CardTitle>
+              <CardDescription>Edit public identity, About details, philosophy, technical arsenal, and professional journey.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+                <div className="space-y-6">
+                  <section className="rounded-lg border border-border bg-muted/10 p-4 md:p-5">
+                    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_260px] xl:items-start">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Display Name</Label>
+                          <Input
+                            value={profileForm.displayName}
+                            onChange={(event) =>
+                              setProfileForm((prev) => ({ ...prev, displayName: event.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input
+                            type="email"
+                            value={profileForm.email}
+                            onChange={(event) =>
+                              setProfileForm((prev) => ({ ...prev, email: event.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Website URL</Label>
+                          <Input
+                            value={profileForm.websiteUrl}
+                            onChange={(event) =>
+                              setProfileForm((prev) => ({ ...prev, websiteUrl: event.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>GitHub URL</Label>
+                          <Input
+                            value={profileForm.githubUrl}
+                            onChange={(event) =>
+                              setProfileForm((prev) => ({ ...prev, githubUrl: event.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Instagram URL</Label>
+                          <Input
+                            value={profileForm.instagramUrl}
+                            onChange={(event) =>
+                              setProfileForm((prev) => ({ ...prev, instagramUrl: event.target.value }))
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <Label className="font-bold text-primary">Profile Picture</Label>
+                          <div className="flex bg-muted p-1 rounded-md">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={profileImageSource === "url" ? "default" : "ghost"}
+                              onClick={() => setProfileImageSource("url")}
+                              className="h-7 text-[10px]"
+                            >
+                              <LinkIcon className="h-3 w-3 mr-1" /> URL
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={profileImageSource === "upload" ? "default" : "ghost"}
+                              onClick={() => setProfileImageSource("upload")}
+                              className="h-7 text-[10px]"
+                            >
+                              <ImageIcon className="h-3 w-3 mr-1" /> UPLOAD
+                            </Button>
+                          </div>
+                        </div>
+
+                        {profileImageSource === "url" ? (
+                          <Input
+                            placeholder="https://..."
+                            value={profileForm.profileImageUrl}
+                            onChange={(event) =>
+                              setProfileForm((prev) => ({ ...prev, profileImageUrl: event.target.value }))
+                            }
+                          />
+                        ) : (
+                          <div className="space-y-2">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) =>
+                                handleImageUpload(event, (url) =>
+                                  setProfileForm((prev) => ({ ...prev, profileImageUrl: url }))
+                                )
+                              }
+                            />
+                            <p className="text-[10px] leading-relaxed text-muted-foreground">
+                              {isFirebaseStorage
+                                ? "Firebase mode stores the profile image as a data URL in profile settings."
+                                : "SQLite mode uploads the image and stores its generated URL in profile settings."}
+                            </p>
+                          </div>
+                        )}
+
+                        {profileForm.profileImageUrl ? (
+                          <div className="mx-auto h-44 w-full max-w-[220px] overflow-hidden rounded-lg border border-primary/20 bg-black/40">
+                            <img
+                              src={profileForm.profileImageUrl}
+                              alt="Profile preview"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="space-y-3 rounded-lg border border-border bg-muted/10 p-4 md:p-5">
+                    <Label>About Text</Label>
+                    <Textarea
+                      value={profileForm.aboutText}
+                      onChange={(event) =>
+                        setProfileForm((prev) => ({ ...prev, aboutText: event.target.value }))
+                      }
+                      className="min-h-[180px]"
+                    />
+                  </section>
+
+                  <section className="space-y-3 rounded-lg border border-border bg-muted/10 p-4 md:p-5">
+                    <Label>Philosophy</Label>
+                    <Textarea
+                      value={profileForm.philosophyText}
+                      onChange={(event) =>
+                        setProfileForm((prev) => ({ ...prev, philosophyText: event.target.value }))
+                      }
+                      className="min-h-[120px]"
+                    />
+                  </section>
+
+                  <section className="space-y-3 rounded-lg border border-border bg-muted/10 p-4 md:p-5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Technical Arsenal</Label>
+                      <Button type="button" size="sm" variant="outline" onClick={addTechnicalArsenalItem}>
+                        <Plus className="h-4 w-4 mr-1" /> Add Skill
+                      </Button>
+                    </div>
+
+                    {profileForm.technicalArsenal.length ? (
+                      profileForm.technicalArsenal.map((item, index) => (
+                        <div key={`skill-${index}`} className="grid gap-3 rounded-lg border border-border bg-background/50 p-3 md:grid-cols-12 md:items-end">
+                          <div className="space-y-2 md:col-span-7">
+                            <Label className="text-xs">Skill Name</Label>
+                            <Input
+                              value={item.name}
+                              onChange={(event) =>
+                                updateTechnicalArsenalItem(index, { name: event.target.value })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-4">
+                            <Label className="text-xs">Level (%)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={item.level}
+                              onChange={(event) =>
+                                updateTechnicalArsenalItem(index, {
+                                  level: Number(event.target.value || 0),
+                                })
+                              }
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="md:col-span-1"
+                            onClick={() => removeTechnicalArsenalItem(index)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No technical arsenal entries yet.</p>
+                    )}
+                  </section>
+
+                  <section className="space-y-3 rounded-lg border border-border bg-muted/10 p-4 md:p-5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Professional Journey</Label>
+                      <Button type="button" size="sm" variant="outline" onClick={addProfessionalJourneyItem}>
+                        <Plus className="h-4 w-4 mr-1" /> Add Journey
+                      </Button>
+                    </div>
+
+                    {profileForm.professionalJourney.length ? (
+                      profileForm.professionalJourney.map((item, index) => (
+                        <div key={`journey-${index}`} className="space-y-3 rounded-lg border border-border bg-background/50 p-3">
+                          <div className="grid md:grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs">Role</Label>
+                              <Input
+                                value={item.role}
+                                onChange={(event) =>
+                                  updateProfessionalJourneyItem(index, {
+                                    role: event.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Organization</Label>
+                              <Input
+                                value={item.company}
+                                onChange={(event) =>
+                                  updateProfessionalJourneyItem(index, {
+                                    company: event.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className="grid md:grid-cols-12 gap-3 items-end">
+                            <div className="md:col-span-11 space-y-2">
+                              <Label className="text-xs">Period</Label>
+                              <Input
+                                value={item.period}
+                                onChange={(event) =>
+                                  updateProfessionalJourneyItem(index, {
+                                    period: event.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => removeProfessionalJourneyItem(index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Description</Label>
+                            <Textarea
+                              value={item.desc}
+                              onChange={(event) =>
+                                updateProfessionalJourneyItem(index, {
+                                  desc: event.target.value,
+                                })
+                              }
+                              className="min-h-[110px]"
+                            />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No journey entries yet.</p>
+                    )}
+                  </section>
+
+                  <div className="flex justify-end pt-1">
+                    <Button type="button" onClick={saveProfile}>
+                      <Save className="h-4 w-4 mr-2" /> Save Profile
+                    </Button>
+                  </div>
+                </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="logs">

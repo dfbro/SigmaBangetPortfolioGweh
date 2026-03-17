@@ -6,8 +6,9 @@ export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isApiRoute = path.startsWith('/api/');
   const isAuthRoute = path.startsWith('/api/auth/');
+  const isProfileRoute = path === '/api/public/profile' || path === '/api/admin/profile';
 
-  if (isApiRoute && !isAuthRoute && getStorageType() === 'firebase') {
+  if (isApiRoute && !isAuthRoute && !isProfileRoute && getStorageType() === 'firebase') {
     return NextResponse.json(
       {
         error:

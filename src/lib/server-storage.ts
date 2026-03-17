@@ -3,6 +3,7 @@ import * as firebaseStorage from '@/lib/firebase-rest-storage';
 import * as sqliteStorage from '@/lib/sqlite-storage';
 import type {
   AchievementRecord,
+  ProfileSettingsRecord,
   ProjectRecord,
   WriteupRecord,
 } from '@/lib/portfolio-types';
@@ -94,4 +95,12 @@ export function createAccessLog(input: {
 
 export function getHomeSummary() {
   return getServerStorage().getHomeSummary();
+}
+
+export function getProfileSettings() {
+  return getServerStorage().getProfileSettings();
+}
+
+export function updateProfileSettings(data: Partial<ProfileSettingsRecord>) {
+  return getServerStorage().updateProfileSettings(data);
 }

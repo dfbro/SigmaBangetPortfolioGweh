@@ -11,10 +11,42 @@ import { Mail, Github, MessageSquare, Send, Globe, Shield, Instagram, Terminal }
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { useToast } from "@/hooks/use-toast"
 import { fetchJson } from "@/lib/api-client"
+import { getDefaultProfileSettings, normalizeProfileSettings } from "@/lib/about-default"
+import type { ProfileSettingsRecord } from "@/lib/portfolio-types"
 
 export default function ContactPage() {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [profileSettings, setProfileSettings] = React.useState<ProfileSettingsRecord>(
+    getDefaultProfileSettings
+  )
+
+  React.useEffect(() => {
+    let active = true
+
+    const loadProfile = async () => {
+      try {
+        const payload = await fetchJson<ProfileSettingsRecord>("/api/public/profile")
+        if (!active) {
+          return
+        }
+
+        setProfileSettings(normalizeProfileSettings(payload))
+      } catch {
+        if (!active) {
+          return
+        }
+
+        setProfileSettings(getDefaultProfileSettings())
+      }
+    }
+
+    void loadProfile()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -88,7 +120,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <p className="text-[10px] font-code uppercase text-muted-foreground">Email (PGP Encrypted)</p>
-                        <p className="font-medium">{process.env.NEXT_PUBLIC_EMAIL}</p>
+                        <p className="font-medium">{profileSettings.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center text-sm group/item">
@@ -106,11 +138,11 @@ export default function ContactPage() {
                 <div>
                   <h2 className="text-xl font-headline font-bold mb-4">Social Hubs</h2>
                   <div className="grid grid-cols-2 gap-4">
-                    <a href={process.env.NEXT_PUBLIC_GITHUB_URL} target="_blank" rel="noopener noreferrer" className="flex items-center p-3 rounded bg-muted/50 border border-border hover:border-primary/50 transition-colors">
+                    <a href={profileSettings.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center p-3 rounded bg-muted/50 border border-border hover:border-primary/50 transition-colors">
                       <Github className="h-4 w-4 mr-3" />
                       <span className="text-sm font-medium">GitHub</span>
                     </a>
-                    <a href={process.env.NEXT_PUBLIC_INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="flex items-center p-3 rounded bg-muted/50 border border-border hover:border-secondary/50 transition-colors">
+                    <a href={profileSettings.instagramUrl} target="_blank" rel="noopener noreferrer" className="flex items-center p-3 rounded bg-muted/50 border border-border hover:border-secondary/50 transition-colors">
                       <Instagram className="h-4 w-4 mr-3" />
                       <span className="text-sm font-medium">Instagram</span>
                     </a>

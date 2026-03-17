@@ -2,11 +2,18 @@ import { randomUUID } from 'crypto';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import sqlite3 from 'sqlite3';
+import {
+  DEFAULT_ABOUT_TEXT,
+  getDefaultProfileSettings,
+  mergeProfileSettings,
+  normalizeProfileSettings,
+} from '@/lib/about-default';
 import type {
   AccessLogRecord,
   AchievementRecord,
   HomeSummaryResponse,
   LatestActivityRecord,
+  ProfileSettingsRecord,
   ProjectRecord,
   SecureMessageRecord,
   WriteupRecord,
@@ -77,6 +84,24 @@ interface AccessLogRow {
   created_at: string;
 }
 
+interface ProfileSettingsRow {
+  id: string;
+  display_name: string | null;
+  email: string | null;
+  website_url: string | null;
+  github_url: string | null;
+  instagram_url: string | null;
+  profile_image_url: string | null;
+  about_text: string | null;
+  technical_arsenal_json: string | null;
+  professional_journey_json: string | null;
+  updated_at: string;
+}
+
+interface TableColumnInfoRow {
+  name: string;
+}
+
 interface SummaryCountRow {
   count: number;
 }
@@ -132,6 +157,31 @@ function get<T>(db: sqlite3.Database, statement: string, params: SqlParam[] = []
       resolve(row);
     });
   });
+}
+
+async function ensureTableColumn(
+  db: sqlite3.Database,
+  tableName: string,
+  columnName: string,
+  columnDefinition: string
+): Promise<void> {
+  const columns = await all<TableColumnInfoRow>(db, `PRAGMA table_info(${tableName})`);
+  const hasColumn = columns.some((column) => column.name === columnName);
+
+  if (!hasColumn) {
+    await run(db, `ALTER TABLE ${tableName} ADD COLUMN ${columnDefinition}`);
+  }
+}
+
+async function ensureProfileSettingsColumns(db: sqlite3.Database): Promise<void> {
+  await ensureTableColumn(db, 'profile_settings', 'display_name', 'display_name TEXT');
+  await ensureTableColumn(db, 'profile_settings', 'email', 'email TEXT');
+  await ensureTableColumn(db, 'profile_settings', 'website_url', 'website_url TEXT');
+  await ensureTableColumn(db, 'profile_settings', 'github_url', 'github_url TEXT');
+  await ensureTableColumn(db, 'profile_settings', 'instagram_url', 'instagram_url TEXT');
+  await ensureTableColumn(db, 'profile_settings', 'profile_image_url', 'profile_image_url TEXT');
+  await ensureTableColumn(db, 'profile_settings', 'technical_arsenal_json', "technical_arsenal_json TEXT NOT NULL DEFAULT '[]'");
+  await ensureTableColumn(db, 'profile_settings', 'professional_journey_json', "professional_journey_json TEXT NOT NULL DEFAULT '[]'");
 }
 
 async function migrate(db: sqlite3.Database): Promise<void> {
@@ -208,6 +258,57 @@ async function migrate(db: sqlite3.Database): Promise<void> {
     )`
   );
 
+  await run(
+    db,
+    `CREATE TABLE IF NOT EXISTS profile_settings (
+      id TEXT PRIMARY KEY,
+      display_name TEXT,
+      email TEXT,
+      website_url TEXT,
+      github_url TEXT,
+      instagram_url TEXT,
+      profile_image_url TEXT,
+      about_text TEXT,
+      technical_arsenal_json TEXT NOT NULL DEFAULT '[]',
+      professional_journey_json TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL
+    )`
+  );
+
+  await ensureProfileSettingsColumns(db);
+
+  const defaultProfileSettings = getDefaultProfileSettings();
+
+  await run(
+    db,
+    `INSERT OR IGNORE INTO profile_settings (
+      id,
+      display_name,
+      email,
+      website_url,
+      github_url,
+      instagram_url,
+      profile_image_url,
+      about_text,
+      technical_arsenal_json,
+      professional_journey_json,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      'main',
+      defaultProfileSettings.displayName ?? 'My Name',
+      defaultProfileSettings.email ?? 'email@domain.tld',
+      defaultProfileSettings.websiteUrl ?? 'https://domain.tld',
+      defaultProfileSettings.githubUrl ?? 'http://github.com/github',
+      defaultProfileSettings.instagramUrl ?? 'https://www.instagram.com',
+      defaultProfileSettings.profileImageUrl ?? '/profile.jpg',
+      defaultProfileSettings.aboutText ?? DEFAULT_ABOUT_TEXT,
+      JSON.stringify(defaultProfileSettings.technicalArsenal ?? []),
+      JSON.stringify(defaultProfileSettings.professionalJourney ?? []),
+      new Date().toISOString(),
+    ]
+  );
+
   await run(db, 'CREATE INDEX IF NOT EXISTS idx_writeups_created_at ON writeups(created_at DESC)');
   await run(db, 'CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at DESC)');
   await run(db, 'CREATE INDEX IF NOT EXISTS idx_achievements_created_at ON achievements(created_at DESC)');
@@ -269,6 +370,19 @@ function parseTags(raw: string | null): string[] {
       .filter(Boolean);
   } catch {
     return [];
+  }
+}
+
+function parseJsonArray<T>(raw: string | null): T[] | undefined {
+  if (!raw) {
+    return undefined;
+  }
+
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? (value as T[]) : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -334,6 +448,26 @@ function mapAccessLogRow(row: AccessLogRow): AccessLogRecord {
     accessedAt: row.accessed_at,
     accessSuccessful: Boolean(row.access_successful),
     ip: row.ip ?? undefined,
+  };
+}
+
+function mapProfileSettingsRow(row: ProfileSettingsRow): ProfileSettingsRecord {
+  const normalized = normalizeProfileSettings({
+    displayName: row.display_name ?? undefined,
+    email: row.email ?? undefined,
+    websiteUrl: row.website_url ?? undefined,
+    githubUrl: row.github_url ?? undefined,
+    instagramUrl: row.instagram_url ?? undefined,
+    profileImageUrl: row.profile_image_url ?? undefined,
+    aboutText: row.about_text ?? undefined,
+    technicalArsenal: parseJsonArray(row.technical_arsenal_json),
+    professionalJourney: parseJsonArray(row.professional_journey_json),
+    updatedAt: row.updated_at,
+  });
+
+  return {
+    ...normalized,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -639,6 +773,74 @@ export async function createAccessLog(input: {
   );
 
   return id;
+}
+
+export async function getProfileSettings(): Promise<ProfileSettingsRecord> {
+  const db = await getDb();
+  const row = await get<ProfileSettingsRow>(db, 'SELECT * FROM profile_settings WHERE id = ? LIMIT 1', ['main']);
+
+  if (!row) {
+    return getDefaultProfileSettings();
+  }
+
+  return mapProfileSettingsRow(row);
+}
+
+export async function updateProfileSettings(
+  data: Partial<ProfileSettingsRecord>
+): Promise<ProfileSettingsRecord> {
+  const db = await getDb();
+  const existing = await get<ProfileSettingsRow>(db, 'SELECT * FROM profile_settings WHERE id = ? LIMIT 1', ['main']);
+
+  const now = new Date().toISOString();
+  const existingProfile = existing ? mapProfileSettingsRow(existing) : getDefaultProfileSettings();
+  const nextProfile = mergeProfileSettings(existingProfile, data);
+
+  await run(
+    db,
+    `INSERT INTO profile_settings (
+      id,
+      display_name,
+      email,
+      website_url,
+      github_url,
+      instagram_url,
+      profile_image_url,
+      about_text,
+      technical_arsenal_json,
+      professional_journey_json,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       display_name = excluded.display_name,
+       email = excluded.email,
+       website_url = excluded.website_url,
+       github_url = excluded.github_url,
+       instagram_url = excluded.instagram_url,
+       profile_image_url = excluded.profile_image_url,
+       about_text = excluded.about_text,
+       technical_arsenal_json = excluded.technical_arsenal_json,
+       professional_journey_json = excluded.professional_journey_json,
+       updated_at = excluded.updated_at`,
+    [
+      'main',
+      nextProfile.displayName ?? null,
+      nextProfile.email ?? null,
+      nextProfile.websiteUrl ?? null,
+      nextProfile.githubUrl ?? null,
+      nextProfile.instagramUrl ?? null,
+      nextProfile.profileImageUrl ?? null,
+      nextProfile.aboutText ?? DEFAULT_ABOUT_TEXT,
+      JSON.stringify(nextProfile.technicalArsenal ?? []),
+      JSON.stringify(nextProfile.professionalJourney ?? []),
+      now,
+    ]
+  );
+
+  return {
+    ...nextProfile,
+    updatedAt: now,
+  };
 }
 
 function pushLatestCandidate(

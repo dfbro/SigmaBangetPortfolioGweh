@@ -30,7 +30,13 @@ function parsePath(input: RequestInfo | URL): string | null {
 
 function shouldUseFirebaseClientApi(path: string | null): boolean {
   // Auth routes always go to the server. Everything else is handled by Firebase client in firebase mode.
-  return path !== null && path.startsWith('/api/') && !path.startsWith('/api/auth/');
+  return (
+    path !== null &&
+    path.startsWith('/api/') &&
+    !path.startsWith('/api/auth/') &&
+    path !== '/api/public/profile' &&
+    path !== '/api/admin/profile'
+  );
 }
 
 export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {

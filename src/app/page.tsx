@@ -10,7 +10,8 @@ import { Shield, Zap, Lock, ChevronRight, CheckCircle2, User, Activity } from "l
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { fetchJson } from "@/lib/api-client"
-import type { HomeSummaryResponse } from "@/lib/portfolio-types"
+import { getDefaultProfileSettings, normalizeProfileSettings } from "@/lib/about-default"
+import type { HomeSummaryResponse, ProfileSettingsRecord } from "@/lib/portfolio-types"
 
 const roles = [
   { text: "CTF Player", color: "text-primary neon-glow" },
@@ -22,11 +23,14 @@ export default function Home() {
   const [currentRoleIndex, setCurrentRoleIndex] = React.useState(0)
   const [terminalLoaded, setTerminalLoaded] = React.useState(false)
   const [summary, setSummary] = React.useState<HomeSummaryResponse | null>(null)
+  const [profileSettings, setProfileSettings] = React.useState<ProfileSettingsRecord>(getDefaultProfileSettings)
 
   const writeupCount = summary?.writeupCount ?? 0
   const projectCount = summary?.projectCount ?? 0
   const achievementCount = summary?.achievementCount ?? 0
   const latestActivity = summary?.latestActivity ?? null
+  const displayName = profileSettings.displayName ?? "My Name"
+  const shortName = displayName.split(" ")[0] || displayName
 
   React.useEffect(() => {
     const roleInterval = setInterval(() => {
@@ -63,6 +67,33 @@ export default function Home() {
     }
   }, [])
 
+  React.useEffect(() => {
+    let isActive = true
+
+    const loadProfile = async () => {
+      try {
+        const payload = await fetchJson<ProfileSettingsRecord>("/api/public/profile")
+        if (!isActive) {
+          return
+        }
+
+        setProfileSettings(normalizeProfileSettings(payload))
+      } catch {
+        if (!isActive) {
+          return
+        }
+
+        setProfileSettings(getDefaultProfileSettings())
+      }
+    }
+
+    void loadProfile()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
   return (
     <div className="relative overflow-hidden bg-grid-pattern min-h-[calc(100vh-64px)] flex items-center">
       <div className="absolute top-0 right-0 -mr-20 -mt-20 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-primary/5 rounded-full blur-[80px] md:blur-[120px]" />
@@ -78,7 +109,7 @@ export default function Home() {
             
             <div className="space-y-2">
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-headline font-bold leading-tight">
-                Hi, I'm <span className="text-primary">{process.env.NEXT_PUBLIC_NAME?.split(' ')[0]}</span>
+                Hi, I'm <span className="text-primary">{shortName}</span>
               </h1>
               <div className="min-h-[1.2em] text-3xl md:text-6xl lg:text-7xl font-headline font-bold">
                 <TerminalText 
@@ -93,7 +124,7 @@ export default function Home() {
 
             <div className="text-base md:text-xl text-muted-foreground max-w-lg min-h-[5rem]">
               <TerminalText 
-                text="I'm a student passionate about cybersecurity, software, and web development. I enjoy solving complex problems, building projects, and exploring new technologies."
+                text={profileSettings.aboutText ?? ""}
                 speed={50}
                 delay={700}
               />
@@ -156,7 +187,7 @@ export default function Home() {
                 <CardContent className="p-4 md:p-6 space-y-4">
                   <div className="space-y-2 font-code text-xs md:text-sm">
                     <p className="text-primary">$ whoami</p>
-                    <p className="text-foreground">{process.env.NEXT_PUBLIC_NAME} [Security Enthusiast]</p>
+                    <p className="text-foreground">{displayName} [Security Enthusiast]</p>
                     <p className="text-primary pt-2">$ cat skill-matrix.json</p>
                     <div className="pl-4 text-primary brightness-150 font-bold space-y-1">
                       <p>{"{"}</p>
@@ -187,7 +218,7 @@ export default function Home() {
                             <span>SUCCESS: Node synchronization complete</span>
                           </div>
                         )}
-                        <p className="text-[9px] md:text-[10px] text-muted-foreground mt-1 ml-5">Status: Operational | Identity: {process.env.NEXT_PUBLIC_NAME}</p>
+                        <p className="text-[9px] md:text-[10px] text-muted-foreground mt-1 ml-5">Status: Operational | Identity: {displayName}</p>
                       </div>
                     )}
                   </div>

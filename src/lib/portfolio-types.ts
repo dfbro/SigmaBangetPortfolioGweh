@@ -65,3 +65,29 @@ export interface HomeSummaryResponse {
   achievementCount: number;
   latestActivity: LatestActivityRecord | null;
 }
+
+export interface TechnicalArsenalItem {
+  name?: string;
+  level?: number;
+}
+
+export interface ProfessionalJourneyItem {
+  role?: string;
+  company?: string;
+  period?: string;
+  desc?: string;
+}
+
+export interface ProfileSettingsRecord {
+  displayName?: string;
+  email?: string;
+  websiteUrl?: string;
+  githubUrl?: string;
+  instagramUrl?: string;
+  profileImageUrl?: string;
+  aboutText?: string;
+  philosophyText?: string;
+  technicalArsenal?: TechnicalArsenalItem[];
+  professionalJourney?: ProfessionalJourneyItem[];
+  updatedAt?: string;
+}
