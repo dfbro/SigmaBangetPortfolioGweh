@@ -2,28 +2,32 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Last Sync: 2024-05-24T16:00:00Z - Forced Deployment for Dynamic Statistics
-    
-    // Publicly readable collections for Portfolio visibility
+    // Last Sync: 2024-05-24T16:00:00Z
+
+    // Publicly readable portfolio collections.
+    // All writes are performed exclusively via server-side API routes using
+    // the Firebase Admin SDK, which bypasses these rules entirely.
+    // Client-side writes are therefore blocked.
     match /ctfWriteups/{writeupId} {
       allow read, list: if true;
-      allow write: if true; // Restricted via app logic/password in Inbox
+      allow write: if false;
     }
     match /projects/{projectId} {
       allow read, list: if true;
-      allow write: if true; 
+      allow write: if false;
     }
     match /achievements/{achievementId} {
       allow read, list: if true;
-      allow write: if true;
+      allow write: if false;
     }
-    
-    // Support and Admin logs
+
+    // Admin-only collections: no client access permitted.
+    // All reads/writes go through server-side API routes.
     match /securePageAccessLogs/{logId} {
-      allow create, read, list: if true;
+      allow read, write: if false;
     }
     match /users/{ownerId}/secureMessages/{messageId} {
-      allow read, write, list: if true;
+      allow read, write: if false;
     }
   }
 }

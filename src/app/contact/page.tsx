@@ -10,16 +10,13 @@ import { Label } from "@/components/ui/label"
 import { Mail, Github, MessageSquare, Send, Globe, Shield, Instagram, Terminal } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { useToast } from "@/hooks/use-toast"
-import { useFirestore } from "@/firebase"
-import { collection } from "firebase/firestore"
-import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates"
+import { fetchJson } from "@/lib/api-client"
 
 export default function ContactPage() {
   const { toast } = useToast()
-  const db = useFirestore()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
     setIsSubmitting(true)
@@ -30,23 +27,26 @@ export default function ContactPage() {
     const subject = formData.get("subject") as string
     const message = formData.get("message") as string
 
-    const messagesRef = collection(db, "users", "admin", "secureMessages")
-    
-    addDocumentNonBlocking(messagesRef, {
-      title: subject,
-      content: `From: ${name} (${email})\n\n${message}`,
-      createdAt: new Date().toISOString(),
-      username: name,
-    })
+    try {
+      await fetchJson<{ ok: true }>("/api/contact", {
+        method: "POST",
+        body: JSON.stringify({ name, email, subject, message }),
+      })
 
-    setTimeout(() => {
       setIsSubmitting(false)
       toast({
         title: "SIGNAL TRANSMITTED",
         description: "Your message has been encrypted and sent to the secure node.",
       })
       form.reset()
-    }, 1000)
+    } catch (error) {
+      setIsSubmitting(false)
+      toast({
+        variant: "destructive",
+        title: "TRANSMISSION FAILED",
+        description: error instanceof Error ? error.message : "Unable to deliver your signal.",
+      })
+    }
   }
 
   return (

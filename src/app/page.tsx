@@ -9,8 +9,8 @@ import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { Shield, Zap, Lock, ChevronRight, CheckCircle2, User, Activity } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, query, orderBy } from "firebase/firestore"
+import { fetchJson } from "@/lib/api-client"
+import type { HomeSummaryResponse } from "@/lib/portfolio-types"
 
 const roles = [
   { text: "CTF Player", color: "text-primary neon-glow" },
@@ -21,43 +21,12 @@ const roles = [
 export default function Home() {
   const [currentRoleIndex, setCurrentRoleIndex] = React.useState(0)
   const [terminalLoaded, setTerminalLoaded] = React.useState(false)
+  const [summary, setSummary] = React.useState<HomeSummaryResponse | null>(null)
 
-  const db = useFirestore()
-  
-  const writeupsRef = useMemoFirebase(() => collection(db, "ctfWriteups"), [db])
-  const projectsRef = useMemoFirebase(() => collection(db, "projects"), [db])
-  const achievementsRef = useMemoFirebase(() => collection(db, "achievements"), [db])
-
-  const { data: writeups } = useCollection(writeupsRef)
-  const { data: projects } = useCollection(projectsRef)
-  const { data: achievements } = useCollection(achievementsRef)
-
-  const writeupCount = writeups?.length || 0
-  const projectCount = projects?.length || 0
-  const achievementCount = achievements?.length || 0
-
-  const latestActivity = React.useMemo(() => {
-    const activities: { type: string; title: string; date: Date }[] = [];
-    
-    if (writeups && writeups.length > 0) {
-      const latest = [...writeups].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      if (latest?.createdAt) activities.push({ type: 'WRITE-UP', title: latest.title, date: new Date(latest.createdAt) });
-    }
-    
-    if (projects && projects.length > 0) {
-      const latest = [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      if (latest?.createdAt) activities.push({ type: 'PROJECT', title: latest.title, date: new Date(latest.createdAt) });
-    }
-    
-    if (achievements && achievements.length > 0) {
-      const latest = [...achievements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      if (latest?.createdAt) activities.push({ type: 'ACHIEVEMENT', title: latest.title, date: new Date(latest.createdAt) });
-    }
-
-    if (activities.length === 0) return null;
-
-    return activities.sort((a, b) => b.date.getTime() - a.date.getTime())[0];
-  }, [writeups, projects, achievements]);
+  const writeupCount = summary?.writeupCount ?? 0
+  const projectCount = summary?.projectCount ?? 0
+  const achievementCount = summary?.achievementCount ?? 0
+  const latestActivity = summary?.latestActivity ?? null
 
   React.useEffect(() => {
     const roleInterval = setInterval(() => {
@@ -69,6 +38,29 @@ export default function Home() {
   React.useEffect(() => {
     const timer = setTimeout(() => setTerminalLoaded(true), 3500)
     return () => clearTimeout(timer)
+  }, [])
+
+  React.useEffect(() => {
+    let isActive = true
+
+    const loadSummary = async () => {
+      try {
+        const nextSummary = await fetchJson<HomeSummaryResponse>("/api/public/summary")
+        if (isActive) {
+          setSummary(nextSummary)
+        }
+      } catch {
+        if (isActive) {
+          setSummary(null)
+        }
+      }
+    }
+
+    void loadSummary()
+
+    return () => {
+      isActive = false
+    }
   }, [])
 
   return (
@@ -187,7 +179,7 @@ export default function Home() {
                               <span className="uppercase font-bold">LATEST {latestActivity.type}:</span>
                               <span className="text-foreground truncate max-w-[200px]">{latestActivity.title}</span>
                             </div>
-                            <p className="text-[9px] md:text-[10px] text-muted-foreground ml-5">Timestamp: {latestActivity.date.toLocaleString()}</p>
+                            <p className="text-[9px] md:text-[10px] text-muted-foreground ml-5">Timestamp: {new Date(latestActivity.date).toLocaleString()}</p>
                           </div>
                         ) : (
                           <div className="flex items-center space-x-2 text-[10px] md:text-xs text-secondary">
