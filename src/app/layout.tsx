@@ -1,25 +1,82 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import { Toaster } from '@/components/ui/toaster';
 import { TVEffect } from '@/components/TVEffect';
 import { ShellGate } from '@/components/ShellGate';
+import { normalizeProfileSettings } from '@/lib/about-default';
 import { getProfileSettings } from '@/lib/server-storage';
 
-export async function generateMetadata(): Promise<Metadata> {
+const FALLBACK_BASE_URL = 'https://claritys.my.id';
+const FALLBACK_DESCRIPTION =
+  'Cybersecurity specialist, CTF player, and web developer. Explore my portfolio, projects, and write-ups.';
+
+function toAbsoluteUrl(value: string | undefined, fallback: string): string {
+  if (!value?.trim()) {
+    return fallback;
+  }
+
+  try {
+    return new URL(value).toString();
+  } catch {
+    return fallback;
+  }
+}
+
+function toHtmlLang(locale: string | undefined): string {
+  if (!locale?.trim()) {
+    return 'en';
+  }
+
+  const normalized = locale.replace('-', '_');
+  return normalized.split('_')[0]?.toLowerCase() || 'en';
+}
+
+function getFallbackKeywords(name: string, igUsername: string): string[] {
+  return [
+    name,
+    igUsername,
+    'Cybersecurity',
+    'CTF Player',
+    'Write-ups',
+    'Security Researcher',
+    'Ethical Hacking',
+    'Web Developer',
+    'Portfolio',
+    'Digital Forensics',
+  ].filter(Boolean);
+}
+
+const getSeoProfileSettings = cache(async () => {
   const profile = await getProfileSettings().catch(() => null);
+  return normalizeProfileSettings(profile);
+});
 
-  const name = profile?.displayName || 'Elang Dimas Syadewa';
+export async function generateMetadata(): Promise<Metadata> {
+  const profile = await getSeoProfileSettings();
+  const seo = profile.seo ?? {};
+
+  const name = profile.displayName || 'Elang Dimas Syadewa';
   const description =
-    profile?.aboutText ||
-    'Cybersecurity specialist, CTF player, and web developer. Explore my portfolio, projects, and write-ups.';
+    seo.description?.trim() || profile.aboutText || FALLBACK_DESCRIPTION;
 
-  const baseUrl = profile?.websiteUrl || 'https://claritys.my.id';
-  const previewImage = `${baseUrl}/preview.png`;
+  const baseUrl = toAbsoluteUrl(seo.canonicalUrl || profile.websiteUrl, FALLBACK_BASE_URL);
+  const previewImage = toAbsoluteUrl(
+    seo.previewImageUrl,
+    `${baseUrl.replace(/\/$/, '')}/preview.png`
+  );
 
-  // Ambil username IG otomatis
   const igUsername =
-    profile?.instagramUrl?.split('/').filter(Boolean).pop() || '';
+    profile.instagramUrl?.split('/').filter(Boolean).pop() || '';
+  const customKeywords = (seo.keywords ?? []).map((entry) => entry.trim()).filter(Boolean);
+  const rawTitleTemplate = seo.titleTemplate?.trim() ?? '';
+  const titleTemplate = rawTitleTemplate.includes('%s')
+    ? rawTitleTemplate
+    : `%s | ${name}`;
+  const defaultTitle = seo.defaultTitle?.trim() || `${name} | Cybersecurity Portfolio`;
+  const siteName = seo.siteName?.trim() || `${name} Portfolio`;
+  const locale = seo.locale?.trim() || 'id_ID';
 
   return {
     metadataBase: new URL(baseUrl),
@@ -29,28 +86,13 @@ export async function generateMetadata(): Promise<Metadata> {
     },
 
     title: {
-      template: `%s | ${name}`,
-      default: `${name} | Cybersecurity Portfolio`,
+      template: titleTemplate,
+      default: defaultTitle,
     },
 
     description,
 
-    keywords: [
-      name,
-      igUsername,
-      'Elang Dimas Syadewa',
-      'elanggslibaw',
-      'Cybersecurity',
-      'CTF Player',
-      'Write-ups',
-      'Security Researcher',
-      'Ethical Hacking',
-      'Bug Bounty',
-      'Web Developer',
-      'Portfolio',
-      'SMK Telkom Malang',
-      'Digital Forensics',
-    ].filter(Boolean),
+    keywords: customKeywords.length ? customKeywords : getFallbackKeywords(name, igUsername),
 
     authors: [{ name }],
     creator: name,
@@ -61,11 +103,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
     openGraph: {
       type: 'website',
-      locale: 'id_ID',
+      locale,
       url: baseUrl,
-      title: `${name} | Cybersecurity Portfolio`,
+      title: defaultTitle,
       description,
-      siteName: `${name} Portfolio`,
+      siteName,
       images: [
         {
           url: previewImage,
@@ -78,7 +120,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
     twitter: {
       card: 'summary_large_image',
-      title: `${name} | Cybersecurity Portfolio`,
+      title: defaultTitle,
       description,
       images: [previewImage],
     },
@@ -90,28 +132,41 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const profile = await getSeoProfileSettings();
+  const seo = profile.seo ?? {};
+
+  const name = profile.displayName || 'Elang Dimas Syadewa';
+  const baseUrl = toAbsoluteUrl(seo.canonicalUrl || profile.websiteUrl, FALLBACK_BASE_URL);
+  const previewImage = toAbsoluteUrl(
+    seo.previewImageUrl,
+    `${baseUrl.replace(/\/$/, '')}/preview.png`
+  );
+  const description =
+    seo.description?.trim() || profile.aboutText || FALLBACK_DESCRIPTION;
+  const customSameAs = (seo.sameAs ?? []).map((entry) => entry.trim()).filter(Boolean);
+  const fallbackSameAs = [profile.instagramUrl, profile.githubUrl]
+    .map((entry) => (entry ?? '').trim())
+    .filter(Boolean);
+  const jobTitle = seo.jobTitle?.trim() || 'Cybersecurity Specialist';
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Person',
-    name: 'Elang Dimas Syadewa',
-    url: 'https://claritys.my.id',
-    image: 'https://claritys.my.id/preview.png',
-    sameAs: [
-      'https://instagram.com/elanggslibaw',
-      'https://github.com/Claritys11',
-    ],
-    jobTitle: 'Cybersecurity Specialist',
-    description:
-      'Cybersecurity specialist, CTF player, and web developer.',
+    name,
+    url: baseUrl,
+    image: previewImage,
+    sameAs: customSameAs.length ? customSameAs : fallbackSameAs,
+    jobTitle,
+    description,
   };
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={toHtmlLang(seo.locale)} suppressHydrationWarning>
       <head>
         {/* Google Fonts */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

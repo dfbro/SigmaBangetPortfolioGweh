@@ -122,6 +122,8 @@ interface ProfileSettingsRow {
   philosophy_text: string | null;
   technical_arsenal_json: string | null;
   professional_journey_json: string | null;
+  education_history_json: string | null;
+  seo_settings_json: string | null;
   updated_at: string;
 }
 
@@ -185,6 +187,8 @@ async function ensureProfileSettingsColumns(db: D1DatabaseBinding): Promise<void
   await ensureTableColumn(db, 'profile_settings', 'philosophy_text', 'philosophy_text TEXT');
   await ensureTableColumn(db, 'profile_settings', 'technical_arsenal_json', "technical_arsenal_json TEXT NOT NULL DEFAULT '[]'");
   await ensureTableColumn(db, 'profile_settings', 'professional_journey_json', "professional_journey_json TEXT NOT NULL DEFAULT '[]'");
+  await ensureTableColumn(db, 'profile_settings', 'education_history_json', "education_history_json TEXT NOT NULL DEFAULT '[]'");
+  await ensureTableColumn(db, 'profile_settings', 'seo_settings_json', "seo_settings_json TEXT NOT NULL DEFAULT '{}'");
 }
 
 async function migrate(db: D1DatabaseBinding): Promise<void> {
@@ -275,6 +279,8 @@ async function migrate(db: D1DatabaseBinding): Promise<void> {
       philosophy_text TEXT,
       technical_arsenal_json TEXT NOT NULL DEFAULT '[]',
       professional_journey_json TEXT NOT NULL DEFAULT '[]',
+      education_history_json TEXT NOT NULL DEFAULT '[]',
+      seo_settings_json TEXT NOT NULL DEFAULT '{}',
       updated_at TEXT NOT NULL
     )`
   );
@@ -297,8 +303,10 @@ async function migrate(db: D1DatabaseBinding): Promise<void> {
       philosophy_text,
       technical_arsenal_json,
       professional_journey_json,
+      education_history_json,
+      seo_settings_json,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       'main',
       defaultProfileSettings.displayName ?? 'My Name',
@@ -311,6 +319,8 @@ async function migrate(db: D1DatabaseBinding): Promise<void> {
       defaultProfileSettings.philosophyText ?? DEFAULT_PHILOSOPHY_TEXT,
       JSON.stringify(defaultProfileSettings.technicalArsenal ?? []),
       JSON.stringify(defaultProfileSettings.professionalJourney ?? []),
+      JSON.stringify(defaultProfileSettings.educationHistory ?? []),
+      JSON.stringify(defaultProfileSettings.seo ?? {}),
       new Date().toISOString(),
     ]
   );
@@ -383,6 +393,23 @@ function parseJsonArray<T>(raw: string | null): T[] | undefined {
   try {
     const value: unknown = JSON.parse(raw);
     return Array.isArray(value) ? (value as T[]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseJsonObject<T>(raw: string | null): T | undefined {
+  if (!raw) {
+    return undefined;
+  }
+
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined;
+    }
+
+    return value as T;
   } catch {
     return undefined;
   }
@@ -465,6 +492,8 @@ function mapProfileSettingsRow(row: ProfileSettingsRow): ProfileSettingsRecord {
     philosophyText: row.philosophy_text ?? undefined,
     technicalArsenal: parseJsonArray(row.technical_arsenal_json),
     professionalJourney: parseJsonArray(row.professional_journey_json),
+    educationHistory: parseJsonArray(row.education_history_json),
+    seo: parseJsonObject<NonNullable<ProfileSettingsRecord['seo']>>(row.seo_settings_json),
     updatedAt: row.updated_at,
   });
 
@@ -813,8 +842,10 @@ export async function updateProfileSettings(
       philosophy_text,
       technical_arsenal_json,
       professional_journey_json,
+      education_history_json,
+      seo_settings_json,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        display_name = excluded.display_name,
        email = excluded.email,
@@ -826,6 +857,8 @@ export async function updateProfileSettings(
        philosophy_text = excluded.philosophy_text,
        technical_arsenal_json = excluded.technical_arsenal_json,
        professional_journey_json = excluded.professional_journey_json,
+       education_history_json = excluded.education_history_json,
+       seo_settings_json = excluded.seo_settings_json,
        updated_at = excluded.updated_at`,
     [
       'main',
@@ -839,6 +872,8 @@ export async function updateProfileSettings(
       nextProfile.philosophyText ?? DEFAULT_PHILOSOPHY_TEXT,
       JSON.stringify(nextProfile.technicalArsenal ?? []),
       JSON.stringify(nextProfile.professionalJourney ?? []),
+      JSON.stringify(nextProfile.educationHistory ?? []),
+      JSON.stringify(nextProfile.seo ?? {}),
       now,
     ]
   );

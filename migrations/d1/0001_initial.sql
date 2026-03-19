@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS profile_settings (
   philosophy_text TEXT,
   technical_arsenal_json TEXT NOT NULL DEFAULT '[]',
   professional_journey_json TEXT NOT NULL DEFAULT '[]',
+  education_history_json TEXT NOT NULL DEFAULT '[]',
+  seo_settings_json TEXT NOT NULL DEFAULT '{}',
   updated_at TEXT NOT NULL
 );
 
@@ -83,6 +85,8 @@ INSERT OR IGNORE INTO profile_settings (
   philosophy_text,
   technical_arsenal_json,
   professional_journey_json,
+  education_history_json,
+  seo_settings_json,
   updated_at
 )
 VALUES (
@@ -97,6 +101,8 @@ VALUES (
   '"Sorry, Wish We Could Go To The Moon Together." -D. M.',
   '[]',
   '[]',
+  '[]',
+  '{}',
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 );
 

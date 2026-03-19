@@ -109,6 +109,25 @@ interface ProfessionalJourneyFormState {
   desc: string
 }
 
+interface EducationHistoryFormState {
+  level: string
+  school: string
+  period: string
+}
+
+interface SeoFormState {
+  titleTemplate: string
+  defaultTitle: string
+  description: string
+  canonicalUrl: string
+  previewImageUrl: string
+  siteName: string
+  locale: string
+  keywords: string
+  jobTitle: string
+  sameAs: string
+}
+
 interface ProfileFormState {
   displayName: string
   email: string
@@ -120,6 +139,19 @@ interface ProfileFormState {
   philosophyText: string
   technicalArsenal: TechnicalArsenalFormState[]
   professionalJourney: ProfessionalJourneyFormState[]
+  educationHistory: EducationHistoryFormState[]
+  seo: SeoFormState
+}
+
+function toCommaSeparated(values?: string[]): string {
+  return (values ?? []).join(", ")
+}
+
+function parseCommaSeparated(value: string): string[] {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
 }
 
 function createEmptyWriteupForm(): WriteupFormState {
@@ -160,6 +192,7 @@ function createEmptyAchievementForm(): AchievementFormState {
 
 function toProfileFormState(profile?: ProfileSettingsRecord | null): ProfileFormState {
   const normalized = mergeProfileSettings(getDefaultProfileSettings(), profile ?? {})
+  const seo = normalized.seo ?? {}
 
   return {
     displayName: normalized.displayName ?? "My Name",
@@ -180,6 +213,23 @@ function toProfileFormState(profile?: ProfileSettingsRecord | null): ProfileForm
       period: item.period ?? "",
       desc: item.desc ?? "",
     })),
+    educationHistory: (normalized.educationHistory ?? []).map((item) => ({
+      level: item.level ?? "",
+      school: item.school ?? "",
+      period: item.period ?? "",
+    })),
+    seo: {
+      titleTemplate: seo.titleTemplate ?? "",
+      defaultTitle: seo.defaultTitle ?? "",
+      description: seo.description ?? "",
+      canonicalUrl: seo.canonicalUrl ?? "",
+      previewImageUrl: seo.previewImageUrl ?? "",
+      siteName: seo.siteName ?? "",
+      locale: seo.locale ?? "",
+      keywords: toCommaSeparated(seo.keywords),
+      jobTitle: seo.jobTitle ?? "",
+      sameAs: toCommaSeparated(seo.sameAs),
+    },
   }
 }
 
@@ -602,6 +652,32 @@ export default function AdminPage() {
     }))
   }
 
+  const addEducationHistoryItem = () => {
+    setProfileForm((prev) => ({
+      ...prev,
+      educationHistory: [...prev.educationHistory, { level: "", school: "", period: "" }],
+    }))
+  }
+
+  const updateEducationHistoryItem = (
+    index: number,
+    patch: Partial<EducationHistoryFormState>
+  ) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      educationHistory: prev.educationHistory.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item
+      ),
+    }))
+  }
+
+  const removeEducationHistoryItem = (index: number) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      educationHistory: prev.educationHistory.filter((_, itemIndex) => itemIndex !== index),
+    }))
+  }
+
   const saveProfile = async () => {
     const payloadToPersist = mergeProfileSettings(getDefaultProfileSettings(), {
       ...profileForm,
@@ -615,6 +691,23 @@ export default function AdminPage() {
         period: item.period,
         desc: item.desc,
       })),
+      educationHistory: profileForm.educationHistory.map((item) => ({
+        level: item.level,
+        school: item.school,
+        period: item.period,
+      })),
+      seo: {
+        titleTemplate: profileForm.seo.titleTemplate,
+        defaultTitle: profileForm.seo.defaultTitle,
+        description: profileForm.seo.description,
+        canonicalUrl: profileForm.seo.canonicalUrl,
+        previewImageUrl: profileForm.seo.previewImageUrl,
+        siteName: profileForm.seo.siteName,
+        locale: profileForm.seo.locale,
+        keywords: parseCommaSeparated(profileForm.seo.keywords),
+        jobTitle: profileForm.seo.jobTitle,
+        sameAs: parseCommaSeparated(profileForm.seo.sameAs),
+      },
     })
 
     try {
@@ -959,7 +1052,7 @@ export default function AdminPage() {
           <Card className="bg-card/50">
             <CardHeader className="bg-muted/30 border-b">
               <CardTitle className="text-sm font-code flex items-center"><User className="h-4 w-4 mr-2" /> About Profile Settings</CardTitle>
-              <CardDescription>Edit public identity, About details, philosophy, technical arsenal, and professional journey.</CardDescription>
+              <CardDescription>Edit public identity, About details, philosophy, education history, technical arsenal, professional journey, and SEO metadata.</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
                 <div className="space-y-6">
@@ -1101,6 +1194,66 @@ export default function AdminPage() {
 
                   <section className="space-y-3 rounded-lg border border-border bg-muted/10 p-4 md:p-5">
                     <div className="flex items-center justify-between">
+                      <Label className="text-sm">Education History</Label>
+                      <Button type="button" size="sm" variant="outline" onClick={addEducationHistoryItem}>
+                        <Plus className="h-4 w-4 mr-1" /> Add School
+                      </Button>
+                    </div>
+
+                    {profileForm.educationHistory.length ? (
+                      profileForm.educationHistory.map((item, index) => (
+                        <div key={`education-${index}`} className="space-y-3 rounded-lg border border-border bg-background/50 p-3">
+                          <div className="grid md:grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs">Education Level</Label>
+                              <Input
+                                value={item.level}
+                                onChange={(event) =>
+                                  updateEducationHistoryItem(index, { level: event.target.value })
+                                }
+                                placeholder="e.g. Vocational High School"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">School / Campus</Label>
+                              <Input
+                                value={item.school}
+                                onChange={(event) =>
+                                  updateEducationHistoryItem(index, { school: event.target.value })
+                                }
+                                placeholder="e.g. SMK Telkom Malang"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-3 items-end">
+                            <div className="flex-1 space-y-2">
+                              <Label className="text-xs">Period</Label>
+                              <Input
+                                value={item.period}
+                                onChange={(event) =>
+                                  updateEducationHistoryItem(index, { period: event.target.value })
+                                }
+                                placeholder="e.g. 2025 - Now"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => removeEducationHistoryItem(index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No education history entries yet.</p>
+                    )}
+                  </section>
+
+                  <section className="space-y-3 rounded-lg border border-border bg-muted/10 p-4 md:p-5">
+                    <div className="flex items-center justify-between">
                       <Label className="text-sm">Technical Arsenal</Label>
                       <Button type="button" size="sm" variant="outline" onClick={addTechnicalArsenalItem}>
                         <Plus className="h-4 w-4 mr-1" /> Add Skill
@@ -1221,6 +1374,144 @@ export default function AdminPage() {
                     ) : (
                       <p className="text-xs text-muted-foreground">No journey entries yet.</p>
                     )}
+                  </section>
+
+                  <section className="space-y-4 rounded-lg border border-border bg-muted/10 p-4 md:p-5">
+                    <div className="space-y-1">
+                      <Label className="text-sm">SEO Settings</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Metadata ini dipakai oleh root layout untuk title, OpenGraph, Twitter card, dan JSON-LD.
+                      </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Default Title</Label>
+                        <Input
+                          value={profileForm.seo.defaultTitle}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, defaultTitle: event.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Title Template</Label>
+                        <Input
+                          value={profileForm.seo.titleTemplate}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, titleTemplate: event.target.value },
+                            }))
+                          }
+                          placeholder="%s | Your Name"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>SEO Description</Label>
+                        <Textarea
+                          value={profileForm.seo.description}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, description: event.target.value },
+                            }))
+                          }
+                          className="min-h-[100px]"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Canonical URL</Label>
+                        <Input
+                          value={profileForm.seo.canonicalUrl}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, canonicalUrl: event.target.value },
+                            }))
+                          }
+                          placeholder="https://domain.tld"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Preview Image URL</Label>
+                        <Input
+                          value={profileForm.seo.previewImageUrl}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, previewImageUrl: event.target.value },
+                            }))
+                          }
+                          placeholder="https://domain.tld/preview.png"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Site Name</Label>
+                        <Input
+                          value={profileForm.seo.siteName}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, siteName: event.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Locale</Label>
+                        <Input
+                          value={profileForm.seo.locale}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, locale: event.target.value },
+                            }))
+                          }
+                          placeholder="id_ID"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Job Title (JSON-LD)</Label>
+                        <Input
+                          value={profileForm.seo.jobTitle}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, jobTitle: event.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Keywords (comma separated)</Label>
+                        <Input
+                          value={profileForm.seo.keywords}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, keywords: event.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Same As URLs (comma separated)</Label>
+                        <Input
+                          value={profileForm.seo.sameAs}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({
+                              ...prev,
+                              seo: { ...prev.seo, sameAs: event.target.value },
+                            }))
+                          }
+                          placeholder="https://instagram.com/username, https://github.com/username"
+                        />
+                      </div>
+                    </div>
                   </section>
 
                   <div className="flex justify-end pt-1">

@@ -26,7 +26,9 @@ Cyberpunk-themed personal portfolio to showcase CTF write-ups, projects, achieve
 
 - `/api/**` endpoints are active.
 - Main app data and profile settings are stored in D1.
-- `admin/upload` is temporarily disabled until cloud object storage migration is finalized.
+- Upload storage uses GitHub Releases via internal APIs:
+   - `POST /api/admin/upload` (max 100 MB, admin-only)
+   - `GET /api/public/uploads/:name` (public proxy download)
 
 ## 🚀 Quick Start
 
@@ -67,6 +69,10 @@ Use this template:
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="replace-with-a-strong-password"
 ADMIN_SESSION_SECRET="use-a-random-string-with-at-least-32-characters"
+GH_OWNER="your-github-username-or-org"
+GH_REPO="your-storage-repo"
+GH_TOKEN="your-github-token"
+GH_RELEASE_TAG="cfw-storage"
 ```
 
 Generate a secure secret (example):
@@ -95,6 +101,19 @@ pnpm cf-typegen
 pnpm d1:migrate:local
 pnpm d1:migrate:remote
 ```
+
+## 📦 GitHub Release Storage Setup
+
+1) Create a GitHub release in your storage repository using the tag from `GH_RELEASE_TAG`.
+
+2) Set these variables in local `.env.local` and in Cloudflare Workers runtime secrets/variables:
+
+- `GH_OWNER`
+- `GH_REPO`
+- `GH_TOKEN`
+- `GH_RELEASE_TAG`
+
+3) Keep `GH_TOKEN` in secrets (never hardcode it in source files).
 
 ---
 
@@ -180,7 +199,13 @@ pnpm cf-typegen
 
 - Ensure `ADMIN_SESSION_SECRET` exists and is at least 32 characters long.
 
+### 3) Upload returns GitHub storage errors
+
+- Verify `GH_OWNER`, `GH_REPO`, `GH_RELEASE_TAG`, and `GH_TOKEN` are valid.
+- Ensure the release tag exists in the target repository.
+
 ## 📌 Notes
 
 - `NEXT_PUBLIC_NAME`, `NEXT_PUBLIC_EMAIL`, and similar vars are no longer the primary profile source.
 - The main profile source is now D1 (`profile_settings`).
+- File uploads are no longer stored in `public/uploads`; they are stored as GitHub Release assets.

@@ -23,7 +23,9 @@ Portfolio pribadi bertema cyberpunk untuk menampilkan proyek, write-up CTF, achi
 
 - Endpoint `/api/**` aktif.
 - Data utama dan profile settings tersimpan di D1.
-- Endpoint `admin/upload` dinonaktifkan sementara sampai migrasi object storage selesai.
+- Storage upload memakai GitHub Releases lewat API internal:
+   - `POST /api/admin/upload` (maks 100 MB, khusus admin)
+   - `GET /api/public/uploads/:name` (proxy download publik)
 
 ## 🚀 Quick Start
 
@@ -64,6 +66,10 @@ Gunakan template ini:
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="ganti-dengan-password-kuat"
 ADMIN_SESSION_SECRET="isi-random-string-minimal-32-karakter"
+GH_OWNER="username-atau-org-github"
+GH_REPO="repo-untuk-storage"
+GH_TOKEN="token-github"
+GH_RELEASE_TAG="cfw-storage"
 ```
 
 Generate secret aman (contoh):
@@ -92,6 +98,19 @@ pnpm cf-typegen
 pnpm d1:migrate:local
 pnpm d1:migrate:remote
 ```
+
+## 📦 Setup GitHub Release Storage
+
+1) Buat release GitHub di repo storage dengan tag yang sama seperti `GH_RELEASE_TAG`.
+
+2) Isi variabel ini di `.env.local` dan juga di runtime secrets/variables Cloudflare Workers:
+
+- `GH_OWNER`
+- `GH_REPO`
+- `GH_TOKEN`
+- `GH_RELEASE_TAG`
+
+3) Simpan `GH_TOKEN` di secrets (jangan hardcode di source code).
 
 ---
 
@@ -177,7 +196,13 @@ pnpm cf-typegen
 
 - Pastikan `ADMIN_SESSION_SECRET` ada dan panjangnya minimal 32 karakter.
 
+### 3) Upload mengembalikan error GitHub storage
+
+- Pastikan `GH_OWNER`, `GH_REPO`, `GH_RELEASE_TAG`, dan `GH_TOKEN` valid.
+- Pastikan release tag memang ada di repo target.
+
 ## 📌 Catatan
 
 - `NEXT_PUBLIC_NAME`, `NEXT_PUBLIC_EMAIL`, dll tidak lagi dipakai sebagai sumber utama profile.
 - Sumber profile utama sekarang adalah D1 (`profile_settings`).
+- File upload tidak lagi disimpan di `public/uploads`, tetapi sebagai asset di GitHub Release.
