@@ -32,7 +32,6 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { fetchJson } from "@/lib/api-client"
 import { getDefaultProfileSettings, mergeProfileSettings } from "@/lib/about-default"
-import { getStorageType } from "@/lib/storage-type"
 import type {
   AccessLogRecord,
   AchievementRecord,
@@ -190,7 +189,6 @@ function createEmptyProfileForm(): ProfileFormState {
 
 export default function AdminPage() {
   const { toast } = useToast()
-  const isFirebaseStorage = getStorageType() === "firebase"
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
   const [isAuthLoading, setIsAuthLoading] = React.useState(true)
   const [isLoginLoading, setIsLoginLoading] = React.useState(false)
@@ -330,34 +328,6 @@ export default function AdminPage() {
     const file = event.target.files?.[0]
     event.target.value = ""
     if (!file) return
-
-    if (isFirebaseStorage) {
-      try {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onloadend = () => {
-            const result = reader.result
-            if (typeof result === "string") {
-              resolve(result)
-            } else {
-              reject(new Error("Unable to encode image."))
-            }
-          }
-          reader.onerror = () => reject(new Error("Unable to encode image."))
-          reader.readAsDataURL(file)
-        })
-
-        setter(dataUrl)
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Upload failed",
-          description: error instanceof Error ? error.message : "Could not process image.",
-        })
-      }
-
-      return
-    }
 
     const form = new FormData()
     form.append("file", file)
@@ -896,9 +866,7 @@ export default function AdminPage() {
                       <div className="space-y-2">
                         <Input type="file" accept="image/*" onChange={(event) => handleImageUpload(event, (url) => setProjectForm({ ...projectForm, imageUrl: url }))} className="cursor-pointer" />
                         <p className="text-[10px] text-muted-foreground">
-                          {isFirebaseStorage
-                            ? "Firebase mode uses Base64 data URL for image fields."
-                            : "SQLite mode uploads binary file and stores UUID URL."}
+                          SQLite mode uploads binary file and stores UUID URL.
                         </p>
                       </div>
                     )}
@@ -1091,9 +1059,7 @@ export default function AdminPage() {
                               }
                             />
                             <p className="text-[10px] leading-relaxed text-muted-foreground">
-                              {isFirebaseStorage
-                                ? "Firebase mode stores the profile image as a data URL in profile settings."
-                                : "SQLite mode uploads the image and stores its generated URL in profile settings."}
+                              SQLite mode uploads the image and stores its generated URL in profile settings.
                             </p>
                           </div>
                         )}
@@ -1299,7 +1265,7 @@ export default function AdminPage() {
         <AlertDialogContent className="bg-card border-destructive/20">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive"><AlertCircle className="h-5 w-5" /> Confirm Permanent Purge</AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">This protocol cannot be reversed. Remove this record from the server-managed Firebase backend permanently?</AlertDialogDescription>
+            <AlertDialogDescription className="text-muted-foreground">This protocol cannot be reversed. Remove this record permanently from server storage?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-muted hover:bg-muted/80">ABORT</AlertDialogCancel>

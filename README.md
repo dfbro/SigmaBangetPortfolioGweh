@@ -10,8 +10,8 @@ Cyberpunk-themed personal portfolio to showcase CTF write-ups, projects, achieve
 ## ✨ Highlights
 
 - ⚡ Next.js 15 App Router + React 19 + Tailwind CSS
-- 🧠 AI flow support via Genkit (`src/ai`)
-- 🗂️ Dual storage mode: `sqlite` or `firebase`
+- 🧠 AI-assisted content refinement utility (`src/ai`)
+- 🗂️ SQLite-first storage for app data
 - 🔐 Server-side cookie session for admin dashboard
 - 🧾 Public profile data stored in `public/profile.json` (editable from admin)
 
@@ -19,17 +19,14 @@ Cyberpunk-themed personal portfolio to showcase CTF write-ups, projects, achieve
 
 - **Frontend:** Next.js, React, Tailwind CSS, Radix UI
 - **Backend/API:** Next.js Route Handlers (`src/app/api/**`)
-- **Data:** SQLite (`sqlite3`) or Firebase/Firestore
-- **Utilities:** date-fns, zod, Genkit
+- **Data:** SQLite (`sqlite3`)
+- **Utilities:** date-fns, zod
 
 ## 🧭 Storage Architecture
 
-| Mode | Best for | Behavior |
-|---|---|---|
-| `sqlite` | Fast local development | `/api/**` endpoints are active, main data is stored in SQLite, profile remains in `public/profile.json` |
-| `firebase` | Firebase/Firestore integration | Browser requests to `/api/**` (non-auth, non-profile) are handled by Firebase client routing; direct calls can return `502` from middleware |
-
-> Recommended path: start with `sqlite` for local setup, then switch to `firebase` once your env is ready.
+- `/api/**` endpoints are active.
+- Main app data is stored in SQLite.
+- Public profile remains in `public/profile.json`.
 
 ## 🚀 Quick Start
 
@@ -58,19 +55,16 @@ npm install
 cp .env.example .env.local
 ```
 
-Then fill `.env.local` based on your storage mode.
+Then fill `.env.local` with the required values.
 
 ---
 
 ## ⚙️ Environment Configuration
 
-### Option A — SQLite mode (fastest for development)
-
-Use this minimal template:
+Use this template:
 
 ```env
 STORAGE_TYPE="sqlite"
-NEXT_PUBLIC_STORAGE_TYPE="sqlite"
 SQLITE_DB_PATH="./data/portfolio.sqlite3"
 
 ADMIN_USERNAME="admin"
@@ -83,36 +77,6 @@ Generate a secure secret (example):
 ```bash
 openssl rand -base64 48
 ```
-
-### Option B — Firebase mode
-
-```env
-STORAGE_TYPE="firebase"
-NEXT_PUBLIC_STORAGE_TYPE="firebase"
-
-ADMIN_USERNAME="admin"
-ADMIN_PASSWORD="must-match-admin-login-and-firebase-fallback"
-ADMIN_SESSION_SECRET="use-a-random-string-with-at-least-32-characters"
-
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=""
-NEXT_PUBLIC_FIREBASE_APP_ID=""
-NEXT_PUBLIC_FIREBASE_API_KEY=""
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=""
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=""
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=""
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=""
-
-NEXT_PUBLIC_FIREBASE_ADMIN_EMAIL=""
-FIREBASE_ADMIN_PROJECT_ID=""
-FIREBASE_ADMIN_CLIENT_EMAIL=""
-FIREBASE_ADMIN_PRIVATE_KEY=""
-```
-
-#### Important Firebase notes
-
-- Most secure server-side admin access: provide `FIREBASE_ADMIN_CLIENT_EMAIL` + `FIREBASE_ADMIN_PRIVATE_KEY` (service account).
-- If service account variables are empty, the app falls back to Firebase email/password auth using `NEXT_PUBLIC_FIREBASE_ADMIN_EMAIL` + `ADMIN_PASSWORD`.
-- In `firebase` mode, non-auth/non-profile API endpoints can return `502` when called directly over network.
 
 ---
 
@@ -166,9 +130,8 @@ After starting the app:
 src/app/                 # App Router pages + API routes
 src/app/api/             # Auth/admin/public/contact endpoints
 src/lib/                 # Storage, types, helpers, session
-src/firebase/            # Firebase client config/provider
 public/profile.json      # Public profile data source
-data/portfolio.sqlite3   # SQLite database (in sqlite mode)
+data/portfolio.sqlite3   # SQLite database
 ```
 
 ## 🧯 Troubleshooting
@@ -185,11 +148,6 @@ pnpm install
 ### 2) `ADMIN_SESSION_SECRET must be set and at least 32 characters`
 
 - Ensure `ADMIN_SESSION_SECRET` exists and is at least 32 characters long.
-
-### 3) API returns `502` in Firebase mode
-
-- This is expected for non-auth/non-profile endpoints when called directly.
-- From the app UI, those operations are handled via Firebase client routing.
 
 ## 📌 Notes
 
