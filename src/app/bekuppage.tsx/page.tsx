@@ -100,7 +100,7 @@ export default function Home() {
       <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-secondary/5 rounded-full blur-[80px] md:blur-[120px]" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 relative z-10 w-full">
-        <div className="grid lg:grid-cols-[1.2fr_1fr] gap-12 items-center">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="relative z-10 space-y-6 md:space-y-8 bg-background/40 backdrop-blur-sm p-6 md:p-8 rounded-lg border border-border/50">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] md:text-xs font-medium uppercase tracking-widest">
               <Zap className="h-3 w-3" />

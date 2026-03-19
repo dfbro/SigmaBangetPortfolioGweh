@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Award, Shield, Trophy, CheckCircle2, Star, ExternalLink, Loader2, X, ZoomIn } from "lucide-react"
+import { Award, Trophy, CheckCircle2, Loader2, ZoomIn } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { fetchJson } from "@/lib/api-client"
 import type { AchievementRecord } from "@/lib/portfolio-types"
@@ -45,8 +45,30 @@ export default function AchievementsPage() {
     }
   }, [])
 
-  const certifications = dbAchievements.filter((achievement) => achievement.imageUrl && achievement.issuer)
-  const quickStats = dbAchievements.filter((achievement) => !achievement.imageUrl || achievement.platform)
+   // Sort achievements by date achieved (descending)
+  const sortedAchievements = React.useMemo(() => {
+    return [...dbAchievements].sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0
+      const dateB = b.date ? new Date(b.date).getTime() : 0
+      
+      // Fallback if date string is not standard (e.g. "Nov 2024")
+      // If new Date() fails, it returns NaN
+      const timeA = isNaN(dateA) ? 0 : dateA
+      const timeB = isNaN(dateB) ? 0 : dateB
+      
+      // Secondary sort by createdAt if dates are same or unparseable
+      if (timeA === timeB) {
+        const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        return createdB - createdA
+      }
+      
+      return timeB - timeA
+    })
+  }, [dbAchievements])
+
+  const certifications = sortedAchievements.filter((achievement) => achievement.imageUrl && achievement.issuer)
+  const quickStats = sortedAchievements.filter((achievement) => !achievement.imageUrl || achievement.platform)
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

@@ -150,7 +150,7 @@ export default function WriteupDetailPage() {
         <Separator className="bg-border/60" />
 
         {/* Content Body - Notion Style Layout */}
-        <article className="max-w-none space-y-12 pb-20">
+        <article className="prose prose-invert max-w-none space-y-12 pb-20">
           <section className="space-y-4">
             <h2 className="text-2xl font-headline font-bold flex items-center">
               <FileText className="h-5 w-5 mr-3 text-secondary" />
@@ -166,10 +166,9 @@ export default function WriteupDetailPage() {
               <Code className="h-5 w-5 mr-3 text-secondary" />
               Documentation
             </h2>
-            <div 
-              className="prose prose-invert prose-primary max-w-none bg-muted/20 p-6 rounded-lg border border-border/50 font-body overflow-hidden"
-              dangerouslySetInnerHTML={{ __html: data.content || "" }}
-            />
+            <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap bg-muted/20 p-6 rounded-lg border border-border/50 font-body">
+              {data.content}
+            </div>
           </section>
 
           <section className="p-8 bg-primary/5 border border-primary/20 rounded-xl space-y-6">

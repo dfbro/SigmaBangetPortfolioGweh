@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -25,7 +24,6 @@ import {
   Image as ImageIcon,
   Link as LinkIcon,
   LogOut,
-  Terminal,
 } from "lucide-react"
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -53,7 +51,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { RichEditor } from "@/components/RichEditor"
 
 type EditMode = "writeup" | "project" | "achievement" | null
 type ImageSourceMode = "url" | "upload"
@@ -260,11 +257,11 @@ export default function AdminPage() {
           fetchJson<ProfileSettingsRecord>("/api/admin/profile"),
         ])
 
-        setMessages(nextMessages || [])
-        setLogs(nextLogs || [])
-        setWriteups(nextWriteups || [])
-        setProjects(nextProjects || [])
-        setAchievements(nextAchievements || [])
+        setMessages(nextMessages)
+        setLogs(nextLogs)
+        setWriteups(nextWriteups)
+        setProjects(nextProjects)
+        setAchievements(nextAchievements)
         setProfileForm(toProfileFormState(nextProfile))
         return true
       } catch (error) {
@@ -309,7 +306,7 @@ export default function AdminPage() {
         }
 
         setIsAuthenticated(true)
-        setUsername(session.username || "")
+        setUsername(session.username)
         await loadDashboardData({ silentUnauthorized: true })
       } catch {
         if (isActive) {
@@ -334,31 +331,45 @@ export default function AdminPage() {
     event.target.value = ""
     if (!file) return
 
-    try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const result = reader.result
-          if (typeof result === "string") {
-            resolve(result)
-          } else {
-            reject(new Error("Unable to encode image."))
+    if (isFirebaseStorage) {
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const result = reader.result
+            if (typeof result === "string") {
+              resolve(result)
+            } else {
+              reject(new Error("Unable to encode image."))
+            }
           }
-        }
-        reader.onerror = () => reject(new Error("Unable to encode image."))
-        reader.readAsDataURL(file)
-      })
+          reader.onerror = () => reject(new Error("Unable to encode image."))
+          reader.readAsDataURL(file)
+        })
 
-      setter(dataUrl)
-      toast({
-        title: "Image Processed",
-        description: "Image converted to Base64 for permanent storage.",
-      })
+        setter(dataUrl)
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Upload failed",
+          description: error instanceof Error ? error.message : "Could not process image.",
+        })
+      }
+
+      return
+    }
+
+    const form = new FormData()
+    form.append("file", file)
+
+    try {
+      const result = await fetchJson<{ url: string }>("/api/admin/upload", { method: "POST", body: form })
+      setter(result.url)
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Processing failed",
-        description: error instanceof Error ? error.message : "Could not process image.",
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Could not upload image.",
       })
     }
   }
@@ -374,7 +385,7 @@ export default function AdminPage() {
       })
 
       setIsAuthenticated(true)
-      setUsername(response.username || "")
+      setUsername(response.username)
       setPassword("")
 
       const didLoad = await loadDashboardData()
@@ -397,6 +408,7 @@ export default function AdminPage() {
     try {
       await fetchJson<{ ok: true }>("/api/auth/logout", { method: "POST" })
     } catch {
+      // Ignore logout transport failures and clear local state anyway.
     } finally {
       handleUnauthorized()
       toast({ title: "Session closed", description: "Admin cookie removed from the server session." })
@@ -761,12 +773,12 @@ export default function AdminPage() {
               messages.map((message) => (
                 <Card key={message.id} className="bg-background/50 border-border">
                   <CardHeader className="py-4">
-                    <CardTitle className="text-lg text-primary">{message.title || "No Title"}</CardTitle>
+                    <CardTitle className="text-lg text-primary">{message.title}</CardTitle>
                     <CardDescription className="text-[10px] font-code">
-                      {message.username || "Anonymous"} • {message.createdAt ? format(new Date(message.createdAt), "yy-MM-dd HH:mm") : "Unknown timestamp"}
+                      {message.username} • {message.createdAt ? format(new Date(message.createdAt), "yy-MM-dd HH:mm") : "Unknown timestamp"}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="py-4 pt-0 text-sm text-muted-foreground whitespace-pre-wrap">{message.content || "No Content"}</CardContent>
+                  <CardContent className="py-4 pt-0 text-sm text-muted-foreground whitespace-pre-wrap">{message.content}</CardContent>
                 </Card>
               ))
             ) : (
@@ -793,8 +805,8 @@ export default function AdminPage() {
                         onClick={() => beginEditWriteup(writeup)}
                       >
                         <div className="truncate">
-                          <p className="text-sm font-bold truncate">{writeup.title || "Untitled"}</p>
-                          <p className="text-[10px] text-muted-foreground">{writeup.competition || "No Competition"}</p>
+                          <p className="text-sm font-bold truncate">{writeup.title}</p>
+                          <p className="text-[10px] text-muted-foreground">{writeup.competition}</p>
                         </div>
                         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(writeup.id, "ctfWriteups") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
@@ -824,24 +836,8 @@ export default function AdminPage() {
                   <div className="space-y-2"><Label>Flag</Label><Input value={writeupForm.flag || ""} onChange={(event) => setWriteupForm({ ...writeupForm, flag: event.target.value })} className="font-code text-primary" /></div>
                   <div className="space-y-2"><Label>Tags (comma separated)</Label><Input value={writeupForm.tags || ""} onChange={(event) => setWriteupForm({ ...writeupForm, tags: event.target.value })} /></div>
                   <div className="space-y-2"><Label>Summary</Label><Textarea value={writeupForm.summary || ""} onChange={(event) => setWriteupForm({ ...writeupForm, summary: event.target.value })} /></div>
-                  <div className="space-y-2">
-                    <Label>Documentation Content</Label>
-                    <RichEditor 
-                      content={writeupForm.content} 
-                      onChange={(html) => setWriteupForm({ ...writeupForm, content: html })} 
-                    />
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    {editingId && (
-                      <Button type="button" variant="destructive" onClick={() => triggerDelete(editingId, "ctfWriteups")}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                      </Button>
-                    )}
-                    <div className="flex gap-2 ml-auto">
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveWriteup}><Save className="h-4 w-4 mr-2" /> Save</Button>
-                    </div>
-                  </div>
+                  <div className="space-y-2"><Label>Content</Label><Textarea value={writeupForm.content || ""} onChange={(event) => setWriteupForm({ ...writeupForm, content: event.target.value })} className="min-h-[200px]" /></div>
+                  <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button type="button" onClick={saveWriteup}><Save className="h-4 w-4 mr-2" /> Save</Button></div>
                 </Card>
               ) : (
                 <div className="h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground p-20 text-center"><Database className="h-10 w-10 mb-4 opacity-20" /><p>Select a write-up node to edit or create a new entry.</p></div>
@@ -868,8 +864,8 @@ export default function AdminPage() {
                         onClick={() => beginEditProject(project)}
                       >
                         <div className="truncate">
-                          <p className="text-sm font-bold truncate">{project.title || "Untitled"}</p>
-                          <p className="text-[10px] text-muted-foreground">{project.category || "General"}</p>
+                          <p className="text-sm font-bold truncate">{project.title}</p>
+                          <p className="text-[10px] text-muted-foreground">{project.category}</p>
                         </div>
                         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(project.id, "projects") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
@@ -900,7 +896,9 @@ export default function AdminPage() {
                       <div className="space-y-2">
                         <Input type="file" accept="image/*" onChange={(event) => handleImageUpload(event, (url) => setProjectForm({ ...projectForm, imageUrl: url }))} className="cursor-pointer" />
                         <p className="text-[10px] text-muted-foreground">
-                          Note: Images uploaded here are saved directly in the database as Base64 for permanent availability after deployment.
+                          {isFirebaseStorage
+                            ? "Firebase mode uses Base64 data URL for image fields."
+                            : "SQLite mode uploads binary file and stores UUID URL."}
                         </p>
                       </div>
                     )}
@@ -912,17 +910,7 @@ export default function AdminPage() {
                   </div>
                   <div className="space-y-2"><Label>Technical Description</Label><Textarea value={projectForm.description || ""} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} className="min-h-[120px]" /></div>
                   <div className="space-y-2"><Label>Stack Tags (comma separated)</Label><Input value={projectForm.tags || ""} onChange={(event) => setProjectForm({ ...projectForm, tags: event.target.value })} placeholder="React, Rust, Cryptography" /></div>
-                  <div className="flex justify-between gap-2">
-                    {editingId && (
-                      <Button type="button" variant="destructive" onClick={() => triggerDelete(editingId, "projects")}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                      </Button>
-                    )}
-                    <div className="flex gap-2 ml-auto">
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveProject}><Save className="h-4 w-4 mr-2" /> Save Project</Button>
-                    </div>
-                  </div>
+                  <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button type="button" onClick={saveProject}><Save className="h-4 w-4 mr-2" /> Save Project</Button></div>
                 </Card>
               ) : (
                 <div className="h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground p-20 text-center"><Cpu className="h-10 w-10 mb-4 opacity-20" /><p>Select a project node or create a new showcase asset.</p></div>
@@ -949,8 +937,8 @@ export default function AdminPage() {
                         onClick={() => beginEditAchievement(achievement)}
                       >
                         <div className="truncate">
-                          <p className="text-sm font-bold truncate">{achievement.title || "Untitled"}</p>
-                          <p className="text-[10px] text-muted-foreground">{achievement.issuer || "No Issuer"}</p>
+                          <p className="text-sm font-bold truncate">{achievement.title}</p>
+                          <p className="text-[10px] text-muted-foreground">{achievement.issuer}</p>
                         </div>
                         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(achievement.id, "achievements") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
@@ -990,17 +978,7 @@ export default function AdminPage() {
                     )}
                   </div>
                   <div className="space-y-2"><Label>Description / Context</Label><Textarea value={achievementForm.description || ""} onChange={(event) => setAchievementForm({ ...achievementForm, description: event.target.value })} /></div>
-                  <div className="flex justify-between gap-2">
-                    {editingId && (
-                      <Button type="button" variant="destructive" onClick={() => triggerDelete(editingId, "achievements")}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                      </Button>
-                    )}
-                    <div className="flex gap-2 ml-auto">
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> Save Record</Button>
-                    </div>
-                  </div>
+                  <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button type="button" onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> Save Record</Button></div>
                 </Card>
               ) : (
                 <div className="h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground p-20 text-center"><Award className="h-10 w-10 mb-4 opacity-20" /><p>Select an achievement node or document a new milestone.</p></div>
@@ -1113,7 +1091,9 @@ export default function AdminPage() {
                               }
                             />
                             <p className="text-[10px] leading-relaxed text-muted-foreground">
-                              Images are saved as Base64 for permanent availability after deployment.
+                              {isFirebaseStorage
+                                ? "Firebase mode stores the profile image as a data URL in profile settings."
+                                : "SQLite mode uploads the image and stores its generated URL in profile settings."}
                             </p>
                           </div>
                         )}
@@ -1301,7 +1281,7 @@ export default function AdminPage() {
                     <div key={log.id} className="p-3 px-6 flex justify-between items-center text-xs hover:bg-primary/5 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className={cn("w-1.5 h-1.5 rounded-full", log.accessSuccessful ? "bg-primary" : "bg-destructive")} />
-                        <span className="font-medium text-foreground">{log.username || "Unknown"}</span>
+                        <span className="font-medium text-foreground">{log.username}</span>
                       </div>
                       <span className="text-muted-foreground font-code opacity-70">{log.accessedAt ? format(new Date(log.accessedAt), "yyyy-MM-dd HH:mm:ss") : "Unknown timestamp"}</span>
                     </div>

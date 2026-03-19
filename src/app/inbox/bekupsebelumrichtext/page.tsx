@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -53,7 +52,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { RichEditor } from "@/components/RichEditor"
 
 type EditMode = "writeup" | "project" | "achievement" | null
 type ImageSourceMode = "url" | "upload"
@@ -824,13 +822,7 @@ export default function AdminPage() {
                   <div className="space-y-2"><Label>Flag</Label><Input value={writeupForm.flag || ""} onChange={(event) => setWriteupForm({ ...writeupForm, flag: event.target.value })} className="font-code text-primary" /></div>
                   <div className="space-y-2"><Label>Tags (comma separated)</Label><Input value={writeupForm.tags || ""} onChange={(event) => setWriteupForm({ ...writeupForm, tags: event.target.value })} /></div>
                   <div className="space-y-2"><Label>Summary</Label><Textarea value={writeupForm.summary || ""} onChange={(event) => setWriteupForm({ ...writeupForm, summary: event.target.value })} /></div>
-                  <div className="space-y-2">
-                    <Label>Documentation Content</Label>
-                    <RichEditor 
-                      content={writeupForm.content} 
-                      onChange={(html) => setWriteupForm({ ...writeupForm, content: html })} 
-                    />
-                  </div>
+                  <div className="space-y-2"><Label>Content</Label><Textarea value={writeupForm.content || ""} onChange={(event) => setWriteupForm({ ...writeupForm, content: event.target.value })} className="min-h-[200px]" /></div>
                   <div className="flex justify-between gap-2">
                     {editingId && (
                       <Button type="button" variant="destructive" onClick={() => triggerDelete(editingId, "ctfWriteups")}>

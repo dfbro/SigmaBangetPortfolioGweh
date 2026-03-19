@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -53,7 +52,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { RichEditor } from "@/components/RichEditor"
 
 type EditMode = "writeup" | "project" | "achievement" | null
 type ImageSourceMode = "url" | "upload"
@@ -334,31 +332,45 @@ export default function AdminPage() {
     event.target.value = ""
     if (!file) return
 
-    try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const result = reader.result
-          if (typeof result === "string") {
-            resolve(result)
-          } else {
-            reject(new Error("Unable to encode image."))
+    if (isFirebaseStorage) {
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const result = reader.result
+            if (typeof result === "string") {
+              resolve(result)
+            } else {
+              reject(new Error("Unable to encode image."))
+            }
           }
-        }
-        reader.onerror = () => reject(new Error("Unable to encode image."))
-        reader.readAsDataURL(file)
-      })
+          reader.onerror = () => reject(new Error("Unable to encode image."))
+          reader.readAsDataURL(file)
+        })
 
-      setter(dataUrl)
-      toast({
-        title: "Image Processed",
-        description: "Image converted to Base64 for permanent storage.",
-      })
+        setter(dataUrl)
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Upload failed",
+          description: error instanceof Error ? error.message : "Could not process image.",
+        })
+      }
+
+      return
+    }
+
+    const form = new FormData()
+    form.append("file", file)
+
+    try {
+      const result = await fetchJson<{ url: string }>("/api/admin/upload", { method: "POST", body: form })
+      setter(result.url)
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Processing failed",
-        description: error instanceof Error ? error.message : "Could not process image.",
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Could not upload image.",
       })
     }
   }
@@ -397,6 +409,7 @@ export default function AdminPage() {
     try {
       await fetchJson<{ ok: true }>("/api/auth/logout", { method: "POST" })
     } catch {
+      // Ignore logout transport failures and clear local state anyway.
     } finally {
       handleUnauthorized()
       toast({ title: "Session closed", description: "Admin cookie removed from the server session." })
@@ -824,24 +837,8 @@ export default function AdminPage() {
                   <div className="space-y-2"><Label>Flag</Label><Input value={writeupForm.flag || ""} onChange={(event) => setWriteupForm({ ...writeupForm, flag: event.target.value })} className="font-code text-primary" /></div>
                   <div className="space-y-2"><Label>Tags (comma separated)</Label><Input value={writeupForm.tags || ""} onChange={(event) => setWriteupForm({ ...writeupForm, tags: event.target.value })} /></div>
                   <div className="space-y-2"><Label>Summary</Label><Textarea value={writeupForm.summary || ""} onChange={(event) => setWriteupForm({ ...writeupForm, summary: event.target.value })} /></div>
-                  <div className="space-y-2">
-                    <Label>Documentation Content</Label>
-                    <RichEditor 
-                      content={writeupForm.content} 
-                      onChange={(html) => setWriteupForm({ ...writeupForm, content: html })} 
-                    />
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    {editingId && (
-                      <Button type="button" variant="destructive" onClick={() => triggerDelete(editingId, "ctfWriteups")}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                      </Button>
-                    )}
-                    <div className="flex gap-2 ml-auto">
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveWriteup}><Save className="h-4 w-4 mr-2" /> Save</Button>
-                    </div>
-                  </div>
+                  <div className="space-y-2"><Label>Content</Label><Textarea value={writeupForm.content || ""} onChange={(event) => setWriteupForm({ ...writeupForm, content: event.target.value })} className="min-h-[200px]" /></div>
+                  <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button type="button" onClick={saveWriteup}><Save className="h-4 w-4 mr-2" /> Save</Button></div>
                 </Card>
               ) : (
                 <div className="h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground p-20 text-center"><Database className="h-10 w-10 mb-4 opacity-20" /><p>Select a write-up node to edit or create a new entry.</p></div>
@@ -900,7 +897,9 @@ export default function AdminPage() {
                       <div className="space-y-2">
                         <Input type="file" accept="image/*" onChange={(event) => handleImageUpload(event, (url) => setProjectForm({ ...projectForm, imageUrl: url }))} className="cursor-pointer" />
                         <p className="text-[10px] text-muted-foreground">
-                          Note: Images uploaded here are saved directly in the database as Base64 for permanent availability after deployment.
+                          {isFirebaseStorage
+                            ? "Firebase mode uses Base64 data URL for image fields."
+                            : "SQLite mode uploads binary file and stores UUID URL."}
                         </p>
                       </div>
                     )}
@@ -912,17 +911,7 @@ export default function AdminPage() {
                   </div>
                   <div className="space-y-2"><Label>Technical Description</Label><Textarea value={projectForm.description || ""} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} className="min-h-[120px]" /></div>
                   <div className="space-y-2"><Label>Stack Tags (comma separated)</Label><Input value={projectForm.tags || ""} onChange={(event) => setProjectForm({ ...projectForm, tags: event.target.value })} placeholder="React, Rust, Cryptography" /></div>
-                  <div className="flex justify-between gap-2">
-                    {editingId && (
-                      <Button type="button" variant="destructive" onClick={() => triggerDelete(editingId, "projects")}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                      </Button>
-                    )}
-                    <div className="flex gap-2 ml-auto">
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveProject}><Save className="h-4 w-4 mr-2" /> Save Project</Button>
-                    </div>
-                  </div>
+                  <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button type="button" onClick={saveProject}><Save className="h-4 w-4 mr-2" /> Save Project</Button></div>
                 </Card>
               ) : (
                 <div className="h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground p-20 text-center"><Cpu className="h-10 w-10 mb-4 opacity-20" /><p>Select a project node or create a new showcase asset.</p></div>
@@ -990,17 +979,7 @@ export default function AdminPage() {
                     )}
                   </div>
                   <div className="space-y-2"><Label>Description / Context</Label><Textarea value={achievementForm.description || ""} onChange={(event) => setAchievementForm({ ...achievementForm, description: event.target.value })} /></div>
-                  <div className="flex justify-between gap-2">
-                    {editingId && (
-                      <Button type="button" variant="destructive" onClick={() => triggerDelete(editingId, "achievements")}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                      </Button>
-                    )}
-                    <div className="flex gap-2 ml-auto">
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> Save Record</Button>
-                    </div>
-                  </div>
+                  <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button><Button type="button" onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> Save Record</Button></div>
                 </Card>
               ) : (
                 <div className="h-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground p-20 text-center"><Award className="h-10 w-10 mb-4 opacity-20" /><p>Select an achievement node or document a new milestone.</p></div>
@@ -1113,7 +1092,9 @@ export default function AdminPage() {
                               }
                             />
                             <p className="text-[10px] leading-relaxed text-muted-foreground">
-                              Images are saved as Base64 for permanent availability after deployment.
+                              {isFirebaseStorage
+                                ? "Firebase mode stores the profile image as a data URL in profile settings."
+                                : "SQLite mode uploads the image and stores its generated URL in profile settings."}
                             </p>
                           </div>
                         )}
