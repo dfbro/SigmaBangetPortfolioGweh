@@ -8,22 +8,22 @@ Portfolio pribadi bertema cyberpunk untuk menampilkan proyek, write-up CTF, achi
 
 - ⚡ Next.js 15 App Router + React 19 + Tailwind CSS
 - 🧠 Utilitas refinement konten berbasis AI (`src/ai`)
-- 🗂️ Storage utama berbasis SQLite
+- ☁️ Storage utama berbasis Cloudflare Workers + D1
 - 🔐 Admin dashboard dengan cookie session server-side
-- 🧾 Profile publik disimpan di `public/profile.json` (editable dari admin)
+- 🧾 Profile publik/admin tersentral di D1 (`profile_settings`)
 
 ## 🧱 Tech Stack
 
 - **Frontend:** Next.js, React, Tailwind CSS, Radix UI
 - **Backend/API:** Next Route Handlers (`src/app/api/**`)
-- **Data:** SQLite (`sqlite3`)
+- **Data:** Cloudflare D1 (SQL kompatibel SQLite)
 - **Utilities:** date-fns, zod
 
 ## 🧭 Arsitektur Storage
 
 - Endpoint `/api/**` aktif.
-- Data utama tersimpan di SQLite.
-- Profile publik tetap dari `public/profile.json`.
+- Data utama dan profile settings tersimpan di D1.
+- Endpoint `admin/upload` dinonaktifkan sementara sampai migrasi object storage selesai.
 
 ## 🚀 Quick Start
 
@@ -61,9 +61,6 @@ Lalu isi `.env.local` dengan nilai yang dibutuhkan.
 Gunakan template ini:
 
 ```env
-STORAGE_TYPE="sqlite"
-SQLITE_DB_PATH="./data/portfolio.sqlite3"
-
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="ganti-dengan-password-kuat"
 ADMIN_SESSION_SECRET="isi-random-string-minimal-32-karakter"
@@ -73,6 +70,27 @@ Generate secret aman (contoh):
 
 ```bash
 openssl rand -base64 48
+```
+
+## ☁️ Setup Cloudflare Workers + D1
+
+1) Buat database D1 lalu isi `database_id` dan `preview_database_id` di `wrangler.jsonc`:
+
+```bash
+pnpm d1:create
+```
+
+2) Generate typing environment Cloudflare:
+
+```bash
+pnpm cf-typegen
+```
+
+3) Terapkan migrasi schema:
+
+```bash
+pnpm d1:migrate:local
+pnpm d1:migrate:remote
 ```
 
 ---
@@ -94,6 +112,18 @@ Server jalan di:
 ```bash
 pnpm build
 pnpm start
+```
+
+### Preview runtime Workers
+
+```bash
+pnpm preview
+```
+
+### Deploy ke Cloudflare Workers
+
+```bash
+pnpm deploy
 ```
 
 ### Quality checks
@@ -118,8 +148,8 @@ Setelah app jalan:
 
 ### Profile data source
 
-- Profile publik dibaca dari `public/profile.json`
-- Perubahan dari tab Profile di admin akan langsung menulis file tersebut
+- Profile publik dibaca dari D1 (`profile_settings`)
+- Perubahan dari tab Profile di admin disimpan ke D1
 
 ## 📂 Struktur Folder Penting
 
@@ -127,19 +157,20 @@ Setelah app jalan:
 src/app/                 # App Router pages + API routes
 src/app/api/             # Endpoint auth/admin/public/contact
 src/lib/                 # Storage, types, helper, session
-public/profile.json      # Sumber data profile publik
-data/portfolio.sqlite3   # Database SQLite
+migrations/d1/           # SQL migrasi D1 via Wrangler
+wrangler.jsonc           # Konfigurasi Worker + binding D1
 ```
 
 ## 🧯 Troubleshooting
 
-### 1) Error SQLite binding saat install/build
+### 1) Binding D1 belum dikonfigurasi
 
-Jika pakai `pnpm` dan modul native belum kebuild:
+Jika muncul error `Cloudflare D1 binding "PORTFOLIO_DB" is not configured.`:
 
 ```bash
-pnpm approve-builds --all
-pnpm install
+pnpm d1:create
+pnpm d1:migrate:local
+pnpm cf-typegen
 ```
 
 ### 2) `ADMIN_SESSION_SECRET must be set and at least 32 characters`
@@ -149,8 +180,4 @@ pnpm install
 ## 📌 Catatan
 
 - `NEXT_PUBLIC_NAME`, `NEXT_PUBLIC_EMAIL`, dll tidak lagi dipakai sebagai sumber utama profile.
-- Sumber profile utama sekarang adalah `public/profile.json`.
-
----
-
-Kalau kamu mau, README ini bisa saya lanjutkan dengan badge status (build/lint), diagram arsitektur, dan section deploy (Vercel) biar lebih “portfolio-ready”.
+- Sumber profile utama sekarang adalah D1 (`profile_settings`).

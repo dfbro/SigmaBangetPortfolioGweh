@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getProfileSettings } from '@/lib/profile-storage';
+import { getProfileSettings } from '@/lib/server-storage';
 
 export const dynamic = 'force-dynamic';
 

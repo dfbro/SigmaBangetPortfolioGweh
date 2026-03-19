@@ -3,9 +3,16 @@ import { cookies } from 'next/headers';
 import { createSessionToken, COOKIE_NAME, SESSION_TTL_MS } from '@/lib/session';
 import { createAccessLog } from '@/lib/server-storage';
 
+interface LoginRequestBody {
+  username?: string;
+  password?: string;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { username, password } = await req.json();
+    const body = (await req.json()) as LoginRequestBody;
+    const username = typeof body.username === 'string' ? body.username : '';
+    const password = typeof body.password === 'string' ? body.password : '';
 
     const adminUsername = process.env.ADMIN_USERNAME;
     const adminPassword = process.env.ADMIN_PASSWORD;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { deleteAchievement, updateAchievement } from '@/lib/server-storage';
+import type { AchievementRecord } from '@/lib/portfolio-types';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!getSessionFromRequest(req)) {
@@ -8,7 +9,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
-  const data = await req.json();
+  const data = (await req.json()) as Partial<AchievementRecord>;
   await updateAchievement(id, data);
   return NextResponse.json({ ok: true });
 }
