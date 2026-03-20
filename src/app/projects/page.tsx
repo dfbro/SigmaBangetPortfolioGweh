@@ -119,7 +119,7 @@ export default function ProjectsPage() {
           <p className="font-code text-muted-foreground">Retrieving project artifacts...</p>
         </div>
       ) : displayProjects.length > 0 ? (
-        <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
           {displayProjects.map((project, idx) => (
             <li key={project.id || idx} className="list-none group">
               <div className="relative h-full rounded-[1.25rem] border-[0.75px] border-border p-1.5 md:p-2">

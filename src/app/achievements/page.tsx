@@ -164,7 +164,7 @@ export default function AchievementsPage() {
         </div>
       ) : (
         <>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20 items-start">
             {certifications.length > 0 ? certifications.map((cert, idx) => (
               <Dialog key={cert.id || idx}>
                 <DialogTrigger asChild>
@@ -238,7 +238,7 @@ export default function AchievementsPage() {
             Competitive Milestones
           </h2>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-6 items-start">
             {quickStats.length > 0 ? quickStats.map((item, idx) => (
               <div key={item.id || idx} className="relative group rounded-xl border border-border p-1">
                 <GlowingEffect
