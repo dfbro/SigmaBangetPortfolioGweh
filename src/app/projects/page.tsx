@@ -124,14 +124,30 @@ export default function ProjectsPage() {
                   inactiveZone={0.01}
                   borderWidth={3}
                 />
-                <a 
-                  href={project.projectUrl || "#"} 
-                  target={project.projectUrl ? "_blank" : "_self"} 
-                  rel="noopener noreferrer"
+                <div
                   className={cn(
                     "relative flex h-full flex-col overflow-hidden rounded-xl border-[0.75px] bg-background p-5 md:p-6 shadow-sm transition-all",
                     project.projectUrl ? "cursor-pointer hover:border-primary/50" : "cursor-default"
                   )}
+                  onClick={() => {
+                    if (project.projectUrl) {
+                      window.open(project.projectUrl, "_blank", "noopener,noreferrer")
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (!project.projectUrl) {
+                      return
+                    }
+
+                    if (event.key !== "Enter" && event.key !== " ") {
+                      return
+                    }
+
+                    event.preventDefault()
+                    window.open(project.projectUrl, "_blank", "noopener,noreferrer")
+                  }}
+                  role={project.projectUrl ? "button" : undefined}
+                  tabIndex={project.projectUrl ? 0 : undefined}
                 >
                   <div className="relative h-48 mb-6 rounded-lg overflow-hidden border border-border/50 bg-muted/20">
                     {project.imageUrl ? (
@@ -168,7 +184,7 @@ export default function ProjectsPage() {
                     ))}
                   </div>
                   <ProjectAttachmentList attachments={project.attachments} />
-                </a>
+                </div>
               </div>
             </li>
           ))}
