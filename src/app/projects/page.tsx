@@ -29,8 +29,11 @@ function ProjectAttachmentList({ attachments }: { attachments?: ProjectRecord["a
       <CollapsibleTrigger asChild>
         <button
           type="button"
+          data-interactive="true"
           onClick={(event) => {
-            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onPointerDown={(event) => {
             event.stopPropagation()
           }}
           className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[10px] uppercase tracking-wider text-muted-foreground hover:bg-background/40"
@@ -48,6 +51,7 @@ function ProjectAttachmentList({ attachments }: { attachments?: ProjectRecord["a
             href={attachment.url}
             target="_blank"
             rel="noopener noreferrer"
+            data-interactive="true"
             onClick={(event) => {
               event.stopPropagation()
             }}
@@ -132,13 +136,24 @@ export default function ProjectsPage() {
                     "relative flex h-full flex-col overflow-hidden rounded-xl border-[0.75px] bg-background p-5 md:p-6 shadow-sm transition-all",
                     project.projectUrl ? "cursor-pointer hover:border-primary/50" : "cursor-default"
                   )}
-                  onClick={() => {
-                    if (project.projectUrl) {
-                      window.open(project.projectUrl, "_blank", "noopener,noreferrer")
+                  onClick={(event) => {
+                    if (!project.projectUrl) {
+                      return
                     }
+
+                    const target = event.target as HTMLElement | null
+                    if (target?.closest('[data-interactive="true"]')) {
+                      return
+                    }
+
+                    window.open(project.projectUrl, "_blank", "noopener,noreferrer")
                   }}
                   onKeyDown={(event) => {
                     if (!project.projectUrl) {
+                      return
+                    }
+
+                    if (event.target !== event.currentTarget) {
                       return
                     }
 
