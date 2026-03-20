@@ -95,7 +95,7 @@ openssl rand -base64 48
 Use environment files by runtime:
 
 - `.env.local` is used by `pnpm dev` (Next.js local dev).
-- `.dev.vars` is used by `pnpm preview` / `wrangler dev` (Worker local preview).
+- `.dev.vars` is used by `pnpm run preview` / `wrangler dev` (Worker local preview).
 
 Set production secrets in Cloudflare (required):
 
@@ -115,7 +115,7 @@ First-time remote deployment order:
 pnpm d1:create
 # copy database_id + preview_database_id into wrangler.jsonc
 pnpm d1:setup:remote
-pnpm deploy
+pnpm run deploy
 ```
 
 ---
@@ -171,8 +171,8 @@ pnpm d1:seed:remote
 ### Worker preview and deploy
 
 ```bash
-pnpm preview
-pnpm deploy
+pnpm run preview
+pnpm run deploy
 ```
 
 ## 🛠️ Admin Setup & Content Management

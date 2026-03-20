@@ -92,7 +92,7 @@ openssl rand -base64 48
 Gunakan file environment sesuai runtime:
 
 - `.env.local` dipakai oleh `pnpm dev` (Next.js local dev).
-- `.dev.vars` dipakai oleh `pnpm preview` / `wrangler dev` (preview Worker lokal).
+- `.dev.vars` dipakai oleh `pnpm run preview` / `wrangler dev` (preview Worker lokal).
 
 Set secret production di Cloudflare (wajib):
 
@@ -112,7 +112,7 @@ Urutan deploy remote pertama kali:
 pnpm d1:create
 # salin database_id + preview_database_id ke wrangler.jsonc
 pnpm d1:setup:remote
-pnpm deploy
+pnpm run deploy
 ```
 
 ---
@@ -168,8 +168,8 @@ pnpm d1:seed:remote
 ### Preview dan deploy Worker
 
 ```bash
-pnpm preview
-pnpm deploy
+pnpm run preview
+pnpm run deploy
 ```
 
 ## 🛠️ Admin Setup & Content Setting
