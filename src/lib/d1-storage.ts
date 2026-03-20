@@ -1,6 +1,4 @@
-import { mkdir } from 'fs/promises';
-import path from 'path';
-import sqlite3 from 'sqlite3';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import {
   DEFAULT_ABOUT_TEXT,
   DEFAULT_PHILOSOPHY_TEXT,
@@ -48,6 +46,10 @@ interface D1PreparedStatement {
 
 interface D1DatabaseBinding {
   prepare(statement: string): D1PreparedStatement;
+}
+
+interface CloudflareEnv {
+  PORTFOLIO_DB?: D1DatabaseBinding;
 }
 
 interface WriteupRow {
@@ -141,96 +143,16 @@ interface LatestRow {
 let migrationPromise: Promise<void> | null = null;
 let dbPromise: Promise<D1DatabaseBinding> | null = null;
 
-function getDbPath(): string {
-  const configured = process.env.SQLITE_DB_PATH?.trim();
-  const resolved = configured ? configured : path.join('data', 'portfolio.sqlite3');
-  return path.isAbsolute(resolved) ? resolved : path.resolve(process.cwd(), resolved);
-}
+async function openD1DatabaseBinding(): Promise<D1DatabaseBinding> {
+  const { env } = await getCloudflareContext({ async: true });
+  const runtimeEnv = env as unknown as CloudflareEnv;
+  const db = runtimeEnv.PORTFOLIO_DB;
 
-class SqlitePreparedStatement implements D1PreparedStatement {
-  private values: SqlParam[] = [];
-
-  constructor(
-    private readonly db: sqlite3.Database,
-    private readonly statement: string
-  ) {}
-
-  bind(...values: SqlParam[]): D1PreparedStatement {
-    this.values = values;
-    return this;
+  if (!db) {
+    throw new Error('Cloudflare D1 binding "PORTFOLIO_DB" is not configured.');
   }
 
-  run(): Promise<D1RunResult> {
-    return new Promise((resolve, reject) => {
-      this.db.run(this.statement, this.values, function onRun(error: Error | null) {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve({
-          meta: {
-            changes: this.changes,
-            last_row_id: this.lastID,
-          },
-        });
-      });
-    });
-  }
-
-  all<T>(): Promise<D1AllResult<T>> {
-    return new Promise((resolve, reject) => {
-      this.db.all(this.statement, this.values, (error, rows: T[]) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve({
-          results: rows ?? [],
-        });
-      });
-    });
-  }
-
-  first<T>(): Promise<T | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get(this.statement, this.values, (error, row: T | undefined) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve(row ?? null);
-      });
-    });
-  }
-}
-
-class SqliteDatabaseBinding implements D1DatabaseBinding {
-  constructor(private readonly db: sqlite3.Database) {}
-
-  prepare(statement: string): D1PreparedStatement {
-    return new SqlitePreparedStatement(this.db, statement);
-  }
-}
-
-async function openSqliteDatabaseBinding(): Promise<D1DatabaseBinding> {
-  const dbPath = getDbPath();
-  await mkdir(path.dirname(dbPath), { recursive: true });
-
-  const db = await new Promise<sqlite3.Database>((resolve, reject) => {
-    const connection = new sqlite3.Database(dbPath, (error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolve(connection);
-    });
-  });
-
-  return new SqliteDatabaseBinding(db);
+  return db;
 }
 
 async function run(db: D1DatabaseBinding, statement: string, params: SqlParam[] = []): Promise<RunResult> {
@@ -425,7 +347,7 @@ async function migrate(db: D1DatabaseBinding): Promise<void> {
 
 async function getDb(): Promise<D1DatabaseBinding> {
   if (!dbPromise) {
-    dbPromise = openSqliteDatabaseBinding();
+    dbPromise = openD1DatabaseBinding();
   }
 
   const db = await dbPromise;

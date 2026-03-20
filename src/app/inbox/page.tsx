@@ -145,6 +145,12 @@ interface ProfileFormState {
   seo: SeoFormState
 }
 
+interface UploadAssetResponse {
+  url: string
+  assetName: string
+  contentType: string
+}
+
 function createEmptyWriteupForm(): WriteupFormState {
   return {
     title: "",
@@ -377,31 +383,46 @@ export default function AdminPage() {
     event.target.value = ""
     if (!file) return
 
-    try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const result = reader.result
-          if (typeof result === "string") {
-            resolve(result)
-          } else {
-            reject(new Error("Unable to encode image."))
-          }
-        }
-        reader.onerror = () => reject(new Error("Unable to encode image."))
-        reader.readAsDataURL(file)
-      })
-
-      setter(dataUrl)
-      toast({
-        title: "Image Processed",
-        description: "Image converted to Base64 for permanent storage.",
-      })
-    } catch (error) {
+    if (!file.type.startsWith("image/")) {
       toast({
         variant: "destructive",
-        title: "Processing failed",
-        description: error instanceof Error ? error.message : "Could not process image.",
+        title: "Invalid file type",
+        description: "Only image files are allowed.",
+      })
+      return
+    }
+
+    const formData = new FormData()
+    formData.append("file", file)
+
+    try {
+      const payload = await fetchJson<UploadAssetResponse>("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      setter(payload.url)
+      toast({
+        title: "Image uploaded",
+        description: `Stored as ${payload.assetName}.`,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not upload image."
+
+      if (message === "Unauthorized.") {
+        handleUnauthorized()
+        toast({
+          variant: "destructive",
+          title: "Session expired",
+          description: "Authenticate again to continue.",
+        })
+        return
+      }
+
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: message,
       })
     }
   }
@@ -986,7 +1007,7 @@ export default function AdminPage() {
                       <div className="space-y-2">
                         <Input type="file" accept="image/*" onChange={(event) => handleImageUpload(event, (url) => setProjectForm({ ...projectForm, imageUrl: url }))} className="cursor-pointer" />
                         <p className="text-[10px] text-muted-foreground">
-                          Note: Images uploaded here are saved directly in the database as Base64 for permanent availability after deployment.
+                          Note: Images are uploaded to GitHub Releases storage and served from /api/public/uploads/*.
                         </p>
                       </div>
                     )}
@@ -1199,7 +1220,7 @@ export default function AdminPage() {
                               }
                             />
                             <p className="text-[10px] leading-relaxed text-muted-foreground">
-                              Images are saved as Base64 for permanent availability after deployment.
+                              Images are uploaded to GitHub Releases storage and served from /api/public/uploads/*.
                             </p>
                           </div>
                         )}

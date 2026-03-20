@@ -1,4 +1,4 @@
-import * as sqliteStorage from '@/lib/sqlite-storage';
+import * as d1Storage from '@/lib/d1-storage';
 import type {
   AchievementRecord,
   ProfileSettingsRecord,
@@ -7,7 +7,7 @@ import type {
 } from '@/lib/portfolio-types';
 
 function getServerStorage() {
-  return sqliteStorage;
+  return d1Storage;
 }
 
 export function listWriteups() {

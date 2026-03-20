@@ -8,22 +8,27 @@ Portfolio pribadi bertema cyberpunk untuk menampilkan proyek, write-up CTF, achi
 
 - ⚡ Next.js 15 App Router + React 19 + Tailwind CSS
 - 🧠 AI flow support via Genkit (`src/ai`)
-- 🗂️ Mode storage SQLite untuk local maupun server deployment
+- 🗂️ Storage berjalan Cloudflare D1 saja (`PORTFOLIO_DB` binding)
+- 🗄️ Upload media disimpan di GitHub Releases dan disajikan lewat `/api/public/uploads/:name`
 - 🔐 Admin dashboard dengan cookie session server-side
-- 🧾 Profile publik disimpan di `public/profile.json` (editable dari admin)
+- 🧾 Profile + SEO bisa diedit dari admin dan disimpan ke storage database
 
 ## 🧱 Tech Stack
 
 - **Frontend:** Next.js, React, Tailwind CSS, Radix UI
 - **Backend/API:** Next Route Handlers (`src/app/api/**`)
-- **Data:** SQLite (`sqlite3`)
+- **Data:** Cloudflare D1
+- **Asset Storage:** GitHub Releases assets
 - **Utilities:** date-fns, zod, Genkit
 
 ## 🧭 Arsitektur Storage
 
-| Mode | Cocok untuk | Perilaku |
-|---|---|---|
-| `sqlite` | Local dev paling simpel | API `/api/**` aktif, data utama di SQLite, profile tetap di `public/profile.json` |
+Aplikasi sekarang berjalan dalam mode Cloudflare-first:
+
+- endpoint `/api/**` aktif di runtime Next.js/Worker
+- data utama disimpan di Cloudflare D1 (`PORTFOLIO_DB` binding)
+- upload media disajikan lewat `/api/public/uploads/:name`
+- setiap upload memakai release GitHub khusus dengan aturan `tag === filename`
 
 ## 🚀 Quick Start
 
@@ -58,19 +63,23 @@ Lalu isi `.env.local` dengan nilai yang dibutuhkan.
 
 ## ⚙️ Setting Environment
 
-### Mode SQLite (paling cepat untuk development)
+### Cloudflare D1 + GitHub Releases (wajib)
 
-Gunakan template minimal ini:
+Gunakan template ini untuk deployment di Cloudflare Workers:
 
 ```env
-STORAGE_TYPE="sqlite"
-NEXT_PUBLIC_STORAGE_TYPE="sqlite"
-SQLITE_DB_PATH="./data/portfolio.sqlite3"
-
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="ganti-dengan-password-kuat"
 ADMIN_SESSION_SECRET="isi-random-string-minimal-32-karakter"
+
+GH_OWNER="github-owner-kamu"
+GH_REPO="nama-repo"
+GH_TOKEN="github-token-dengan-scope-repo"
 ```
+
+Catatan penting:
+- Worker Cloudflare harus punya binding D1 bernama `PORTFOLIO_DB`.
+- Upload otomatis membuat release tag dari nama file (`tag === filename`).
 
 Generate secret aman (contoh):
 
@@ -106,6 +115,35 @@ pnpm typecheck
 pnpm lint
 ```
 
+### Migrasi dan seed D1
+
+Inisialisasi Cloudflare D1 (sekali saja):
+
+```bash
+pnpm d1:create
+```
+
+Lalu salin `database_id` dan `preview_database_id` dari output CLI ke `wrangler.jsonc`.
+
+```bash
+pnpm d1:migrate:local
+pnpm d1:seed:local
+```
+
+Untuk Cloudflare D1 remote:
+
+```bash
+pnpm d1:migrate:remote
+pnpm d1:seed:remote
+```
+
+### Preview dan deploy Worker
+
+```bash
+pnpm preview
+pnpm deploy
+```
+
 ## 🛠️ Admin Setup & Content Setting
 
 Setelah app jalan:
@@ -121,8 +159,9 @@ Setelah app jalan:
 
 ### Profile data source
 
-- Profile publik dibaca dari `public/profile.json`
-- Perubahan dari tab Profile di admin akan langsung menulis file tersebut
+- Profile publik dibaca dari `/api/public/profile` (berbasis storage)
+- Perubahan dari tab Profile di admin disimpan ke storage (`profile_settings`)
+- Gambar yang di-upload disimpan sebagai GitHub Release asset dan diproxy oleh `/api/public/uploads/:name`
 
 ## 📂 Struktur Folder Penting
 
@@ -130,20 +169,17 @@ Setelah app jalan:
 src/app/                 # App Router pages + API routes
 src/app/api/             # Endpoint auth/admin/public/contact
 src/lib/                 # Storage, types, helper, session
-public/profile.json      # Sumber data profile publik
-data/portfolio.sqlite3   # Database SQLite (jika mode sqlite)
+src/lib/github-release-storage.ts # Helper storage asset GitHub Releases
+database/migrations/     # File migrasi skema D1
+database/seeds/          # File seed SQL D1
 ```
 
 ## 🧯 Troubleshooting
 
-### 1) Error SQLite binding saat install/build
+### 1) `Cloudflare D1 binding "PORTFOLIO_DB" is not configured.`
 
-Jika pakai `pnpm` dan modul native belum kebuild:
-
-```bash
-pnpm approve-builds --all
-pnpm install
-```
+- Pastikan binding `PORTFOLIO_DB` ada di `wrangler.jsonc`.
+- Jalankan `pnpm d1:migrate:local` sebelum preview/dev pertama dengan konteks Worker.
 
 ### 2) `ADMIN_SESSION_SECRET must be set and at least 32 characters`
 
@@ -152,5 +188,5 @@ pnpm install
 ## 📌 Catatan
 
 - `NEXT_PUBLIC_NAME`, `NEXT_PUBLIC_EMAIL`, dll tidak lagi dipakai sebagai sumber utama profile.
-- Sumber profile utama sekarang adalah `public/profile.json`.
+- Sumber profile utama sekarang berbasis storage (`profile_settings`).
 
