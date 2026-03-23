@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mkdir, writeFile } from 'fs/promises';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { getSessionFromRequest } from '@/lib/session';
-import { uploadFileToGithubRelease } from '@/lib/github-release-storage';
 
 const MAX_SIZE = 100 * 1024 * 1024;
+
+const ALLOWED_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/avif': 'avif',
+};
 
 function sanitizeFileName(fileName: string): string {
   const normalized = (fileName || 'file.bin')
@@ -45,24 +54,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'File too large. Maximum size is 100 MB.' }, { status: 413 });
   }
 
-  const storedName = `${randomUUID()}-${sanitizeFileName(file.name)}`;
-  const result = await uploadFileToGithubRelease(
-    storedName,
-    file.stream(),
-    file.type || 'application/octet-stream',
-    file.size
-  );
-
-  if (!result.ok) {
-    const statusCode = result.status && result.status >= 400 && result.status <= 599 ? result.status : 500;
-    return NextResponse.json({ error: result.error }, { status: statusCode });
+  const ext = ALLOWED_TYPES[file.type];
+  if (!ext) {
+    return NextResponse.json(
+      { error: `Unsupported file type "${file.type}". Allowed: jpeg, png, gif, webp, avif.` },
+      { status: 415 }
+    );
   }
+
+  const bytes = await file.arrayBuffer();
+  const uploadsDir = join(process.cwd(), 'public', 'uploads');
+  await mkdir(uploadsDir, { recursive: true });
+
+  const sanitizedBaseName = sanitizeFileName(file.name).replace(/\.[a-zA-Z0-9]+$/, '');
+  const storedName = `${randomUUID()}-${sanitizedBaseName}.${ext}`;
+  await writeFile(join(uploadsDir, storedName), Buffer.from(bytes));
 
   return NextResponse.json(
     {
-      url: result.publicUrl,
-      assetName: result.name,
-      contentType: result.contentType,
+      url: `/uploads/${storedName}`,
+      assetName: storedName,
+      contentType: file.type || 'application/octet-stream',
     },
     { status: 201 }
   );

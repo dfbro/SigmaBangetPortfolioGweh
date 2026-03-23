@@ -1,4 +1,6 @@
-import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { mkdir } from 'fs/promises';
+import path from 'path';
+import sqlite3 from 'sqlite3';
 import {
   DEFAULT_ABOUT_TEXT,
   DEFAULT_PHILOSOPHY_TEXT,
@@ -25,33 +27,7 @@ interface RunResult {
   changes: number;
 }
 
-interface D1Meta {
-  changes?: number;
-  last_row_id?: number;
-}
-
-interface D1RunResult {
-  meta?: D1Meta;
-}
-
-interface D1AllResult<T> {
-  results?: T[];
-}
-
-interface D1PreparedStatement {
-  bind(...values: SqlParam[]): D1PreparedStatement;
-  run(): Promise<D1RunResult>;
-  all<T>(): Promise<D1AllResult<T>>;
-  first<T>(): Promise<T | null>;
-}
-
-interface D1DatabaseBinding {
-  prepare(statement: string): D1PreparedStatement;
-}
-
-interface CloudflareEnv {
-  PORTFOLIO_DB?: D1DatabaseBinding;
-}
+type SqliteDatabaseBinding = sqlite3.Database;
 
 interface WriteupRow {
   id: string;
@@ -148,43 +124,74 @@ interface LatestRow {
 }
 
 let migrationPromise: Promise<void> | null = null;
-let dbPromise: Promise<D1DatabaseBinding> | null = null;
+let dbPromise: Promise<SqliteDatabaseBinding> | null = null;
 
-async function openD1DatabaseBinding(): Promise<D1DatabaseBinding> {
-  const { env } = await getCloudflareContext({ async: true });
-  const runtimeEnv = env as unknown as CloudflareEnv;
-  const db = runtimeEnv.PORTFOLIO_DB;
-
-  if (!db) {
-    throw new Error('Cloudflare D1 binding "PORTFOLIO_DB" is not configured.');
-  }
-
-  return db;
+function getDbPath(): string {
+  const configured = process.env.SQLITE_DB_PATH?.trim();
+  const resolved = configured ? configured : path.join('data', 'portfolio.sqlite3');
+  return path.isAbsolute(resolved) ? resolved : path.resolve(process.cwd(), resolved);
 }
 
-async function run(db: D1DatabaseBinding, statement: string, params: SqlParam[] = []): Promise<RunResult> {
-  const prepared = db.prepare(statement).bind(...params);
-  const result = await prepared.run();
-  return {
-    lastID: Number(result.meta?.last_row_id ?? 0),
-    changes: Number(result.meta?.changes ?? 0),
-  };
+async function openSqliteDatabaseBinding(): Promise<SqliteDatabaseBinding> {
+  const dbPath = getDbPath();
+  await mkdir(path.dirname(dbPath), { recursive: true });
+
+  return await new Promise<sqlite3.Database>((resolve, reject) => {
+    const connection = new sqlite3.Database(dbPath, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(connection);
+    });
+  });
 }
 
-async function all<T>(db: D1DatabaseBinding, statement: string, params: SqlParam[] = []): Promise<T[]> {
-  const prepared = db.prepare(statement).bind(...params);
-  const result = await prepared.all<T>();
-  return result.results ?? [];
+function run(db: SqliteDatabaseBinding, statement: string, params: SqlParam[] = []): Promise<RunResult> {
+  return new Promise((resolve, reject) => {
+    db.run(statement, params, function onRun(error: Error | null) {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve({
+        lastID: this.lastID,
+        changes: this.changes,
+      });
+    });
+  });
 }
 
-async function get<T>(db: D1DatabaseBinding, statement: string, params: SqlParam[] = []): Promise<T | undefined> {
-  const prepared = db.prepare(statement).bind(...params);
-  const row = await prepared.first<T>();
-  return row ?? undefined;
+function all<T>(db: SqliteDatabaseBinding, statement: string, params: SqlParam[] = []): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    db.all(statement, params, (error, rows: T[]) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(rows ?? []);
+    });
+  });
+}
+
+function get<T>(db: SqliteDatabaseBinding, statement: string, params: SqlParam[] = []): Promise<T | undefined> {
+  return new Promise((resolve, reject) => {
+    db.get(statement, params, (error, row: T | undefined) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(row);
+    });
+  });
 }
 
 async function ensureTableColumn(
-  db: D1DatabaseBinding,
+  db: SqliteDatabaseBinding,
   tableName: string,
   columnName: string,
   columnDefinition: string
@@ -197,7 +204,7 @@ async function ensureTableColumn(
   }
 }
 
-async function ensureWriteupColumns(db: D1DatabaseBinding): Promise<void> {
+async function ensureWriteupColumns(db: SqliteDatabaseBinding): Promise<void> {
   await ensureTableColumn(
     db,
     'writeups',
@@ -206,7 +213,7 @@ async function ensureWriteupColumns(db: D1DatabaseBinding): Promise<void> {
   );
 }
 
-async function ensureProjectColumns(db: D1DatabaseBinding): Promise<void> {
+async function ensureProjectColumns(db: SqliteDatabaseBinding): Promise<void> {
   await ensureTableColumn(
     db,
     'projects',
@@ -215,7 +222,7 @@ async function ensureProjectColumns(db: D1DatabaseBinding): Promise<void> {
   );
 }
 
-async function ensureAchievementColumns(db: D1DatabaseBinding): Promise<void> {
+async function ensureAchievementColumns(db: SqliteDatabaseBinding): Promise<void> {
   await ensureTableColumn(
     db,
     'achievements',
@@ -224,7 +231,7 @@ async function ensureAchievementColumns(db: D1DatabaseBinding): Promise<void> {
   );
 }
 
-async function ensureProfileSettingsColumns(db: D1DatabaseBinding): Promise<void> {
+async function ensureProfileSettingsColumns(db: SqliteDatabaseBinding): Promise<void> {
   await ensureTableColumn(db, 'profile_settings', 'display_name', 'display_name TEXT');
   await ensureTableColumn(db, 'profile_settings', 'alias_name', 'alias_name TEXT');
   await ensureTableColumn(db, 'profile_settings', 'navbar_brand_mode', 'navbar_brand_mode TEXT');
@@ -241,7 +248,7 @@ async function ensureProfileSettingsColumns(db: D1DatabaseBinding): Promise<void
   await ensureTableColumn(db, 'profile_settings', 'seo_settings_json', "seo_settings_json TEXT NOT NULL DEFAULT '{}'");
 }
 
-async function migrate(db: D1DatabaseBinding): Promise<void> {
+async function migrate(db: SqliteDatabaseBinding): Promise<void> {
   await run(
     db,
     `CREATE TABLE IF NOT EXISTS writeups (
@@ -397,9 +404,9 @@ async function migrate(db: D1DatabaseBinding): Promise<void> {
   await run(db, 'CREATE INDEX IF NOT EXISTS idx_access_logs_accessed_at ON access_logs(accessed_at DESC)');
 }
 
-async function getDb(): Promise<D1DatabaseBinding> {
+async function getDb(): Promise<SqliteDatabaseBinding> {
   if (!dbPromise) {
-    dbPromise = openD1DatabaseBinding();
+    dbPromise = openSqliteDatabaseBinding();
   }
 
   const db = await dbPromise;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteFileFromGithubRelease } from '@/lib/github-release-storage';
+import { unlink } from 'fs/promises';
+import { join } from 'path';
 import { getSessionFromRequest } from '@/lib/session';
 
 function normalizeAssetName(rawName: string): string | null {
@@ -28,12 +29,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ n
     return NextResponse.json({ error: 'Invalid asset name.' }, { status: 400 });
   }
 
-  const result = await deleteFileFromGithubRelease(assetName);
+  try {
+    const filePath = join(process.cwd(), 'public', 'uploads', assetName);
+    await unlink(filePath);
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError.code === 'ENOENT') {
+      return NextResponse.json({ error: 'Asset not found.' }, { status: 404 });
+    }
 
-  if (!result.ok) {
-    const statusCode = result.status && result.status >= 400 && result.status <= 599 ? result.status : 500;
-    return NextResponse.json({ error: result.error }, { status: statusCode });
+    return NextResponse.json({ error: 'Failed to delete asset.' }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, name: assetName, message: result.message });
+  return NextResponse.json({ ok: true, name: assetName, message: `Asset '${assetName}' deleted successfully.` });
 }
