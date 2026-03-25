@@ -66,6 +66,10 @@ export function listSecureMessages() {
   return getServerStorage().listSecureMessages();
 }
 
+export function deleteSecureMessage(id: string) {
+  return getServerStorage().deleteSecureMessage(id);
+}
+
 export function createContactMessage(input: {
   name: string;
   email: string;

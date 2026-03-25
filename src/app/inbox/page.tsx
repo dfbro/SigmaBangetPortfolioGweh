@@ -57,6 +57,7 @@ type EditMode = "writeup" | "project" | "achievement" | null
 type ImageSourceMode = "url" | "upload"
 
 const adminCollectionRoutes = {
+  messages: "/api/admin/messages",
   ctfWriteups: "/api/admin/writeups",
   projects: "/api/admin/projects",
   achievements: "/api/admin/achievements",
@@ -254,6 +255,52 @@ function parseCommaSeparatedValues(value: string): string[] {
     .filter(Boolean)
 }
 
+type DraftKind = "writeup" | "achievement"
+
+function buildDraftStorageKey(kind: DraftKind, id: string | null): string {
+  return `admin:draft:${kind}:${id ?? "new"}`
+}
+
+function readDraftFromStorage<T>(kind: DraftKind, id: string | null): T | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const rawDraft = window.localStorage.getItem(buildDraftStorageKey(kind, id))
+    if (!rawDraft) {
+      return null
+    }
+
+    const parsedDraft = JSON.parse(rawDraft) as { data?: T }
+    return parsedDraft?.data ?? null
+  } catch {
+    return null
+  }
+}
+
+function writeDraftToStorage<T>(kind: DraftKind, id: string | null, data: T): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.localStorage.setItem(
+    buildDraftStorageKey(kind, id),
+    JSON.stringify({
+      updatedAt: new Date().toISOString(),
+      data,
+    })
+  )
+}
+
+function clearDraftFromStorage(kind: DraftKind, id: string | null): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.localStorage.removeItem(buildDraftStorageKey(kind, id))
+}
+
 function toProfileFormState(profile?: ProfileSettingsRecord | null): ProfileFormState {
   const normalized = mergeProfileSettings(getDefaultProfileSettings(), profile ?? {})
   const seo = normalized.seo ?? {}
@@ -327,11 +374,18 @@ export default function AdminPage() {
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [imageSource, setImageSource] = React.useState<ImageSourceMode>("url")
   const [profileImageSource, setProfileImageSource] = React.useState<ImageSourceMode>("url")
+  const [isWriteupAutoSaving, setIsWriteupAutoSaving] = React.useState(false)
+  const [isAchievementAutoSaving, setIsAchievementAutoSaving] = React.useState(false)
 
   const [writeupForm, setWriteupForm] = React.useState<WriteupFormState>(createEmptyWriteupForm)
   const [projectForm, setProjectForm] = React.useState<ProjectFormState>(createEmptyProjectForm)
   const [achievementForm, setAchievementForm] = React.useState<AchievementFormState>(createEmptyAchievementForm)
   const [profileForm, setProfileForm] = React.useState<ProfileFormState>(createEmptyProfileForm)
+
+  const writeupAutosaveSkipKeyRef = React.useRef<string | null>(null)
+  const achievementAutosaveSkipKeyRef = React.useRef<string | null>(null)
+  const writeupAutosaveSnapshotRef = React.useRef("")
+  const achievementAutosaveSnapshotRef = React.useRef("")
 
   const resetDashboard = React.useCallback(() => {
     setMessages([])
@@ -440,6 +494,105 @@ export default function AdminPage() {
       isActive = false
     }
   }, [handleUnauthorized, loadDashboardData])
+
+  React.useEffect(() => {
+    if (editMode !== "writeup") {
+      return
+    }
+
+    writeDraftToStorage("writeup", editingId, writeupForm)
+  }, [editMode, editingId, writeupForm])
+
+  React.useEffect(() => {
+    if (editMode !== "achievement") {
+      return
+    }
+
+    writeDraftToStorage("achievement", editingId, achievementForm)
+  }, [editMode, editingId, achievementForm])
+
+  React.useEffect(() => {
+    if (editMode !== "writeup" || !editingId) {
+      return
+    }
+
+    const skipKey = `${editingId}:writeup`
+    if (writeupAutosaveSkipKeyRef.current === skipKey) {
+      writeupAutosaveSkipKeyRef.current = null
+      return
+    }
+
+    const payload = {
+      ...writeupForm,
+      tags: writeupForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      attachments: normalizeAttachmentPayload(writeupForm.attachments),
+    }
+
+    const snapshot = JSON.stringify(payload)
+    if (writeupAutosaveSnapshotRef.current === snapshot) {
+      return
+    }
+
+    const timer = window.setTimeout(async () => {
+      setIsWriteupAutoSaving(true)
+
+      try {
+        await fetchJson<{ ok: true }>(`/api/admin/writeups/${editingId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        })
+        writeupAutosaveSnapshotRef.current = snapshot
+      } catch {
+      } finally {
+        setIsWriteupAutoSaving(false)
+      }
+    }, 1200)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [editMode, editingId, writeupForm])
+
+  React.useEffect(() => {
+    if (editMode !== "achievement" || !editingId) {
+      return
+    }
+
+    const skipKey = `${editingId}:achievement`
+    if (achievementAutosaveSkipKeyRef.current === skipKey) {
+      achievementAutosaveSkipKeyRef.current = null
+      return
+    }
+
+    const payload = {
+      ...achievementForm,
+      attachments: normalizeAttachmentPayload(achievementForm.attachments),
+    }
+
+    const snapshot = JSON.stringify(payload)
+    if (achievementAutosaveSnapshotRef.current === snapshot) {
+      return
+    }
+
+    const timer = window.setTimeout(async () => {
+      setIsAchievementAutoSaving(true)
+
+      try {
+        await fetchJson<{ ok: true }>(`/api/admin/achievements/${editingId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        })
+        achievementAutosaveSnapshotRef.current = snapshot
+      } catch {
+      } finally {
+        setIsAchievementAutoSaving(false)
+      }
+    }, 1200)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [editMode, editingId, achievementForm])
 
   const uploadAsset = React.useCallback(
     async (
@@ -632,13 +785,24 @@ export default function AdminPage() {
   const beginCreateWriteup = () => {
     setEditMode("writeup")
     setEditingId(null)
-    setWriteupForm(createEmptyWriteupForm())
+
+    const draft = readDraftFromStorage<WriteupFormState>("writeup", null)
+    const nextForm = draft ?? createEmptyWriteupForm()
+    setWriteupForm(nextForm)
+
+    writeupAutosaveSkipKeyRef.current = null
+    writeupAutosaveSnapshotRef.current = JSON.stringify({
+      ...nextForm,
+      tags: nextForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      attachments: normalizeAttachmentPayload(nextForm.attachments),
+    })
   }
 
   const beginEditWriteup = (writeup: WriteupRecord) => {
     setEditMode("writeup")
     setEditingId(writeup.id)
-    setWriteupForm({
+
+    const baseForm: WriteupFormState = {
       title: writeup.title || "",
       competition: writeup.competition || "",
       category: writeup.category || "Web",
@@ -649,6 +813,17 @@ export default function AdminPage() {
       flag: writeup.flag || "",
       tags: (writeup.tags || []).join(", "),
       attachments: toAttachmentFormState(writeup.attachments),
+    }
+
+    const draft = readDraftFromStorage<WriteupFormState>("writeup", writeup.id)
+    const nextForm = draft ?? baseForm
+    setWriteupForm(nextForm)
+
+    writeupAutosaveSkipKeyRef.current = `${writeup.id}:writeup`
+    writeupAutosaveSnapshotRef.current = JSON.stringify({
+      ...baseForm,
+      tags: baseForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      attachments: normalizeAttachmentPayload(baseForm.attachments),
     })
   }
 
@@ -678,14 +853,24 @@ export default function AdminPage() {
     setEditMode("achievement")
     setEditingId(null)
     setImageSource("url")
-    setAchievementForm(createEmptyAchievementForm())
+
+    const draft = readDraftFromStorage<AchievementFormState>("achievement", null)
+    const nextForm = draft ?? createEmptyAchievementForm()
+    setAchievementForm(nextForm)
+
+    achievementAutosaveSkipKeyRef.current = null
+    achievementAutosaveSnapshotRef.current = JSON.stringify({
+      ...nextForm,
+      attachments: normalizeAttachmentPayload(nextForm.attachments),
+    })
   }
 
   const beginEditAchievement = (achievement: AchievementRecord) => {
     setEditMode("achievement")
     setEditingId(achievement.id)
     setImageSource("url")
-    setAchievementForm({
+
+    const baseForm: AchievementFormState = {
       title: achievement.title || "",
       issuer: achievement.issuer || "",
       platform: achievement.platform || "",
@@ -693,6 +878,16 @@ export default function AdminPage() {
       imageUrl: achievement.imageUrl || "",
       date: achievement.date || format(new Date(), "yyyy-MM-dd"),
       attachments: toAttachmentFormState(achievement.attachments),
+    }
+
+    const draft = readDraftFromStorage<AchievementFormState>("achievement", achievement.id)
+    const nextForm = draft ?? baseForm
+    setAchievementForm(nextForm)
+
+    achievementAutosaveSkipKeyRef.current = `${achievement.id}:achievement`
+    achievementAutosaveSnapshotRef.current = JSON.stringify({
+      ...baseForm,
+      attachments: normalizeAttachmentPayload(baseForm.attachments),
     })
   }
 
@@ -702,6 +897,7 @@ export default function AdminPage() {
       tags: writeupForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
       attachments: normalizeAttachmentPayload(writeupForm.attachments),
     }
+    const currentEditingId = editingId
 
     try {
       if (editingId) {
@@ -716,6 +912,8 @@ export default function AdminPage() {
         })
       }
 
+      clearDraftFromStorage("writeup", currentEditingId)
+      writeupAutosaveSnapshotRef.current = JSON.stringify(payload)
       toast({ title: "Write-up saved" })
       setEditMode(null)
       setEditingId(null)
@@ -770,6 +968,7 @@ export default function AdminPage() {
       ...achievementForm,
       attachments: normalizeAttachmentPayload(achievementForm.attachments),
     }
+    const currentEditingId = editingId
 
     try {
       if (editingId) {
@@ -784,6 +983,8 @@ export default function AdminPage() {
         })
       }
 
+      clearDraftFromStorage("achievement", currentEditingId)
+      achievementAutosaveSnapshotRef.current = JSON.stringify(payload)
       toast({ title: "Achievement saved" })
       setEditMode(null)
       setEditingId(null)
@@ -944,6 +1145,14 @@ export default function AdminPage() {
         method: "DELETE",
       })
 
+      if (itemToDelete.collection === "ctfWriteups") {
+        clearDraftFromStorage("writeup", itemToDelete.id)
+      }
+
+      if (itemToDelete.collection === "achievements") {
+        clearDraftFromStorage("achievement", itemToDelete.id)
+      }
+
       toast({ title: "Record purged" })
       setDeleteDialogOpen(false)
       setItemToDelete(null)
@@ -1037,11 +1246,23 @@ export default function AdminPage() {
             ) : messages.length ? (
               messages.map((message) => (
                 <Card key={message.id} className="bg-background/50 border-border">
-                  <CardHeader className="py-4">
-                    <CardTitle className="text-lg text-primary">{message.title || "No Title"}</CardTitle>
-                    <CardDescription className="text-[10px] font-code">
-                      {message.username || "Anonymous"} • {message.createdAt ? format(new Date(message.createdAt), "yy-MM-dd HH:mm") : "Unknown timestamp"}
-                    </CardDescription>
+                  <CardHeader className="py-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <CardTitle className="text-lg text-primary break-words">{message.title || "No Title"}</CardTitle>
+                        <CardDescription className="text-[10px] font-code">
+                          {message.username || "Anonymous"} • {message.createdAt ? format(new Date(message.createdAt), "yy-MM-dd HH:mm") : "Unknown timestamp"}
+                        </CardDescription>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => triggerDelete(message.id, "messages")}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="py-4 pt-0 text-sm text-muted-foreground whitespace-pre-wrap">{message.content || "No Content"}</CardContent>
                 </Card>
@@ -1160,6 +1381,11 @@ export default function AdminPage() {
                       </Button>
                     )}
                     <div className="flex gap-2 ml-auto">
+                      {editingId ? (
+                        <div className="flex items-center px-3 text-xs text-muted-foreground">
+                          {isWriteupAutoSaving ? "Auto-saving..." : "Auto-save enabled"}
+                        </div>
+                      ) : null}
                       <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
                       <Button type="button" onClick={saveWriteup}><Save className="h-4 w-4 mr-2" /> Save</Button>
                     </div>
@@ -1407,6 +1633,11 @@ export default function AdminPage() {
                       </Button>
                     )}
                     <div className="flex gap-2 ml-auto">
+                      {editingId ? (
+                        <div className="flex items-center px-3 text-xs text-muted-foreground">
+                          {isAchievementAutoSaving ? "Auto-saving..." : "Auto-save enabled"}
+                        </div>
+                      ) : null}
                       <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
                       <Button type="button" onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> Save Record</Button>
                     </div>
