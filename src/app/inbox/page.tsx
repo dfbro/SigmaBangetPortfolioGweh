@@ -255,50 +255,69 @@ function parseCommaSeparatedValues(value: string): string[] {
     .filter(Boolean)
 }
 
-type DraftKind = "writeup" | "achievement"
+type DraftKind = "writeup" | "project" | "achievement"
 
-function buildDraftStorageKey(kind: DraftKind, id: string | null): string {
-  return `admin:draft:${kind}:${id ?? "new"}`
+interface LocalDraft<T> {
+  id: string
+  updatedAt: string
+  data: T
 }
 
-function readDraftFromStorage<T>(kind: DraftKind, id: string | null): T | null {
+function draftCollectionStorageKey(kind: DraftKind): string {
+  return `admin:drafts:${kind}`
+}
+
+function readDraftCollectionFromStorage<T>(kind: DraftKind): LocalDraft<T>[] {
   if (typeof window === "undefined") {
-    return null
+    return []
   }
 
   try {
-    const rawDraft = window.localStorage.getItem(buildDraftStorageKey(kind, id))
-    if (!rawDraft) {
-      return null
+    const rawCollection = window.localStorage.getItem(draftCollectionStorageKey(kind))
+    if (!rawCollection) {
+      return []
     }
 
-    const parsedDraft = JSON.parse(rawDraft) as { data?: T }
-    return parsedDraft?.data ?? null
+    const parsedCollection = JSON.parse(rawCollection) as Array<LocalDraft<T>>
+    if (!Array.isArray(parsedCollection)) {
+      return []
+    }
+
+    return parsedCollection.filter((entry) => typeof entry?.id === "string" && Boolean(entry.id))
   } catch {
-    return null
+    return []
   }
 }
 
-function writeDraftToStorage<T>(kind: DraftKind, id: string | null, data: T): void {
+function writeDraftCollectionToStorage<T>(kind: DraftKind, collection: LocalDraft<T>[]): void {
   if (typeof window === "undefined") {
     return
   }
 
-  window.localStorage.setItem(
-    buildDraftStorageKey(kind, id),
-    JSON.stringify({
-      updatedAt: new Date().toISOString(),
-      data,
-    })
-  )
+  window.localStorage.setItem(draftCollectionStorageKey(kind), JSON.stringify(collection))
 }
 
-function clearDraftFromStorage(kind: DraftKind, id: string | null): void {
+function upsertDraftInStorage<T>(kind: DraftKind, draft: LocalDraft<T>): LocalDraft<T>[] {
+  const currentCollection = readDraftCollectionFromStorage<T>(kind)
+  const filteredCollection = currentCollection.filter((entry) => entry.id !== draft.id)
+  const nextCollection = [draft, ...filteredCollection].sort((left, right) => {
+    const leftTime = new Date(left.updatedAt).getTime()
+    const rightTime = new Date(right.updatedAt).getTime()
+    return rightTime - leftTime
+  })
+
+  writeDraftCollectionToStorage(kind, nextCollection)
+  return nextCollection
+}
+
+function removeDraftFromStorage(kind: DraftKind, id: string): void {
   if (typeof window === "undefined") {
     return
   }
 
-  window.localStorage.removeItem(buildDraftStorageKey(kind, id))
+  const currentCollection = readDraftCollectionFromStorage(kind)
+  const nextCollection = currentCollection.filter((entry) => entry.id !== id)
+  writeDraftCollectionToStorage(kind, nextCollection)
 }
 
 function toProfileFormState(profile?: ProfileSettingsRecord | null): ProfileFormState {
@@ -372,20 +391,24 @@ export default function AdminPage() {
 
   const [editMode, setEditMode] = React.useState<EditMode>(null)
   const [editingId, setEditingId] = React.useState<string | null>(null)
+  const [activeDraftId, setActiveDraftId] = React.useState<string | null>(null)
+  const [saveIndicator, setSaveIndicator] = React.useState<"saved" | "unsaved" | "saving">("saved")
   const [imageSource, setImageSource] = React.useState<ImageSourceMode>("url")
   const [profileImageSource, setProfileImageSource] = React.useState<ImageSourceMode>("url")
-  const [isWriteupAutoSaving, setIsWriteupAutoSaving] = React.useState(false)
-  const [isAchievementAutoSaving, setIsAchievementAutoSaving] = React.useState(false)
+  const [writeupListTab, setWriteupListTab] = React.useState<"published" | "drafts">("published")
+  const [projectListTab, setProjectListTab] = React.useState<"published" | "drafts">("published")
+  const [achievementListTab, setAchievementListTab] = React.useState<"published" | "drafts">("published")
 
   const [writeupForm, setWriteupForm] = React.useState<WriteupFormState>(createEmptyWriteupForm)
   const [projectForm, setProjectForm] = React.useState<ProjectFormState>(createEmptyProjectForm)
   const [achievementForm, setAchievementForm] = React.useState<AchievementFormState>(createEmptyAchievementForm)
   const [profileForm, setProfileForm] = React.useState<ProfileFormState>(createEmptyProfileForm)
+  const [writeupDrafts, setWriteupDrafts] = React.useState<Array<LocalDraft<WriteupFormState>>>([])
+  const [projectDrafts, setProjectDrafts] = React.useState<Array<LocalDraft<ProjectFormState>>>([])
+  const [achievementDrafts, setAchievementDrafts] = React.useState<Array<LocalDraft<AchievementFormState>>>([])
 
-  const writeupAutosaveSkipKeyRef = React.useRef<string | null>(null)
-  const achievementAutosaveSkipKeyRef = React.useRef<string | null>(null)
-  const writeupAutosaveSnapshotRef = React.useRef("")
-  const achievementAutosaveSnapshotRef = React.useRef("")
+  const draftAutosaveTimerRef = React.useRef<number | null>(null)
+  const draftSnapshotRef = React.useRef("")
 
   const resetDashboard = React.useCallback(() => {
     setMessages([])
@@ -395,6 +418,8 @@ export default function AdminPage() {
     setAchievements([])
     setEditMode(null)
     setEditingId(null)
+    setActiveDraftId(null)
+    setSaveIndicator("saved")
     setItemToDelete(null)
     setDeleteDialogOpen(false)
     setWriteupForm(createEmptyWriteupForm())
@@ -403,6 +428,9 @@ export default function AdminPage() {
     setProfileForm(createEmptyProfileForm())
     setImageSource("url")
     setProfileImageSource("url")
+    setWriteupListTab("published")
+    setProjectListTab("published")
+    setAchievementListTab("published")
   }, [])
 
   const handleUnauthorized = React.useCallback(() => {
@@ -496,103 +524,85 @@ export default function AdminPage() {
   }, [handleUnauthorized, loadDashboardData])
 
   React.useEffect(() => {
-    if (editMode !== "writeup") {
-      return
-    }
+    setWriteupDrafts(readDraftCollectionFromStorage<WriteupFormState>("writeup"))
+    setProjectDrafts(readDraftCollectionFromStorage<ProjectFormState>("project"))
+    setAchievementDrafts(readDraftCollectionFromStorage<AchievementFormState>("achievement"))
+  }, [])
 
-    writeDraftToStorage("writeup", editingId, writeupForm)
-  }, [editMode, editingId, writeupForm])
+  const getDraftDisplayName = React.useCallback(
+    (
+      kind: DraftKind,
+      draft:
+        | LocalDraft<WriteupFormState>
+        | LocalDraft<ProjectFormState>
+        | LocalDraft<AchievementFormState>
+    ) => {
+      const rawName =
+        kind === "writeup"
+          ? (draft as LocalDraft<WriteupFormState>).data.title
+          : kind === "project"
+            ? (draft as LocalDraft<ProjectFormState>).data.title
+            : (draft as LocalDraft<AchievementFormState>).data.title
+
+      const safeName = (rawName || "").trim() || "unknown"
+      const safeDate = format(new Date(draft.updatedAt), "yyyyMMdd-HHmm")
+      return `Draft-${safeName}-${safeDate}`
+    },
+    []
+  )
 
   React.useEffect(() => {
-    if (editMode !== "achievement") {
+    if (!editMode || !activeDraftId) {
       return
     }
 
-    writeDraftToStorage("achievement", editingId, achievementForm)
-  }, [editMode, editingId, achievementForm])
+    const draftData =
+      editMode === "writeup"
+        ? writeupForm
+        : editMode === "project"
+          ? projectForm
+          : achievementForm
 
-  React.useEffect(() => {
-    if (editMode !== "writeup" || !editingId) {
+    const snapshot = JSON.stringify(draftData)
+    if (draftSnapshotRef.current === snapshot) {
       return
     }
 
-    const skipKey = `${editingId}:writeup`
-    if (writeupAutosaveSkipKeyRef.current === skipKey) {
-      writeupAutosaveSkipKeyRef.current = null
-      return
+    setSaveIndicator("unsaved")
+
+    if (draftAutosaveTimerRef.current) {
+      window.clearTimeout(draftAutosaveTimerRef.current)
     }
 
-    const payload = {
-      ...writeupForm,
-      tags: writeupForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      attachments: normalizeAttachmentPayload(writeupForm.attachments),
-    }
+    draftAutosaveTimerRef.current = window.setTimeout(() => {
+      setSaveIndicator("saving")
 
-    const snapshot = JSON.stringify(payload)
-    if (writeupAutosaveSnapshotRef.current === snapshot) {
-      return
-    }
-
-    const timer = window.setTimeout(async () => {
-      setIsWriteupAutoSaving(true)
-
-      try {
-        await fetchJson<{ ok: true }>(`/api/admin/writeups/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        })
-        writeupAutosaveSnapshotRef.current = snapshot
-      } catch {
-      } finally {
-        setIsWriteupAutoSaving(false)
+      const draftEntry = {
+        id: activeDraftId,
+        updatedAt: new Date().toISOString(),
+        data: draftData,
       }
-    }, 1200)
+
+      if (editMode === "writeup") {
+        setWriteupDrafts(upsertDraftInStorage("writeup", draftEntry as LocalDraft<WriteupFormState>))
+      } else if (editMode === "project") {
+        setProjectDrafts(upsertDraftInStorage("project", draftEntry as LocalDraft<ProjectFormState>))
+      } else {
+        setAchievementDrafts(
+          upsertDraftInStorage("achievement", draftEntry as LocalDraft<AchievementFormState>)
+        )
+      }
+
+      draftSnapshotRef.current = snapshot
+      setSaveIndicator("saved")
+    }, 1000)
 
     return () => {
-      window.clearTimeout(timer)
-    }
-  }, [editMode, editingId, writeupForm])
-
-  React.useEffect(() => {
-    if (editMode !== "achievement" || !editingId) {
-      return
-    }
-
-    const skipKey = `${editingId}:achievement`
-    if (achievementAutosaveSkipKeyRef.current === skipKey) {
-      achievementAutosaveSkipKeyRef.current = null
-      return
-    }
-
-    const payload = {
-      ...achievementForm,
-      attachments: normalizeAttachmentPayload(achievementForm.attachments),
-    }
-
-    const snapshot = JSON.stringify(payload)
-    if (achievementAutosaveSnapshotRef.current === snapshot) {
-      return
-    }
-
-    const timer = window.setTimeout(async () => {
-      setIsAchievementAutoSaving(true)
-
-      try {
-        await fetchJson<{ ok: true }>(`/api/admin/achievements/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        })
-        achievementAutosaveSnapshotRef.current = snapshot
-      } catch {
-      } finally {
-        setIsAchievementAutoSaving(false)
+      if (draftAutosaveTimerRef.current) {
+        window.clearTimeout(draftAutosaveTimerRef.current)
       }
-    }, 1200)
-
-    return () => {
-      window.clearTimeout(timer)
     }
-  }, [editMode, editingId, achievementForm])
+  }, [activeDraftId, editMode, writeupForm, projectForm, achievementForm])
 
   const uploadAsset = React.useCallback(
     async (
@@ -785,24 +795,22 @@ export default function AdminPage() {
   const beginCreateWriteup = () => {
     setEditMode("writeup")
     setEditingId(null)
-
-    const draft = readDraftFromStorage<WriteupFormState>("writeup", null)
-    const nextForm = draft ?? createEmptyWriteupForm()
-    setWriteupForm(nextForm)
-
-    writeupAutosaveSkipKeyRef.current = null
-    writeupAutosaveSnapshotRef.current = JSON.stringify({
-      ...nextForm,
-      tags: nextForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      attachments: normalizeAttachmentPayload(nextForm.attachments),
-    })
+    setActiveDraftId(crypto.randomUUID())
+    const emptyForm = createEmptyWriteupForm()
+    setWriteupForm(emptyForm)
+    setWriteupListTab("drafts")
+    setSaveIndicator("saved")
+    draftSnapshotRef.current = JSON.stringify(emptyForm)
   }
 
   const beginEditWriteup = (writeup: WriteupRecord) => {
     setEditMode("writeup")
     setEditingId(writeup.id)
+    setActiveDraftId(null)
+    setSaveIndicator("saved")
+    setWriteupListTab("published")
 
-    const baseForm: WriteupFormState = {
+    setWriteupForm({
       title: writeup.title || "",
       competition: writeup.competition || "",
       category: writeup.category || "Web",
@@ -813,30 +821,39 @@ export default function AdminPage() {
       flag: writeup.flag || "",
       tags: (writeup.tags || []).join(", "),
       attachments: toAttachmentFormState(writeup.attachments),
-    }
-
-    const draft = readDraftFromStorage<WriteupFormState>("writeup", writeup.id)
-    const nextForm = draft ?? baseForm
-    setWriteupForm(nextForm)
-
-    writeupAutosaveSkipKeyRef.current = `${writeup.id}:writeup`
-    writeupAutosaveSnapshotRef.current = JSON.stringify({
-      ...baseForm,
-      tags: baseForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
-      attachments: normalizeAttachmentPayload(baseForm.attachments),
     })
+
+    draftSnapshotRef.current = ""
+  }
+
+  const beginEditWriteupDraft = (draft: LocalDraft<WriteupFormState>) => {
+    setEditMode("writeup")
+    setEditingId(null)
+    setActiveDraftId(draft.id)
+    setWriteupListTab("drafts")
+    setWriteupForm(draft.data)
+    setSaveIndicator("saved")
+    draftSnapshotRef.current = JSON.stringify(draft.data)
   }
 
   const beginCreateProject = () => {
     setEditMode("project")
     setEditingId(null)
+    setActiveDraftId(crypto.randomUUID())
     setImageSource("url")
-    setProjectForm(createEmptyProjectForm())
+    const emptyForm = createEmptyProjectForm()
+    setProjectForm(emptyForm)
+    setProjectListTab("drafts")
+    setSaveIndicator("saved")
+    draftSnapshotRef.current = JSON.stringify(emptyForm)
   }
 
   const beginEditProject = (project: ProjectRecord) => {
     setEditMode("project")
     setEditingId(project.id)
+    setActiveDraftId(null)
+    setSaveIndicator("saved")
+    setProjectListTab("published")
     setImageSource("url")
     setProjectForm({
       title: project.title || "",
@@ -847,30 +864,41 @@ export default function AdminPage() {
       tags: (project.tags || []).join(", "),
       attachments: toAttachmentFormState(project.attachments),
     })
+    draftSnapshotRef.current = ""
+  }
+
+  const beginEditProjectDraft = (draft: LocalDraft<ProjectFormState>) => {
+    setEditMode("project")
+    setEditingId(null)
+    setActiveDraftId(draft.id)
+    setProjectListTab("drafts")
+    setImageSource("url")
+    setProjectForm(draft.data)
+    setSaveIndicator("saved")
+    draftSnapshotRef.current = JSON.stringify(draft.data)
   }
 
   const beginCreateAchievement = () => {
     setEditMode("achievement")
     setEditingId(null)
+    setActiveDraftId(crypto.randomUUID())
     setImageSource("url")
-
-    const draft = readDraftFromStorage<AchievementFormState>("achievement", null)
-    const nextForm = draft ?? createEmptyAchievementForm()
-    setAchievementForm(nextForm)
-
-    achievementAutosaveSkipKeyRef.current = null
-    achievementAutosaveSnapshotRef.current = JSON.stringify({
-      ...nextForm,
-      attachments: normalizeAttachmentPayload(nextForm.attachments),
-    })
+    const emptyForm = createEmptyAchievementForm()
+    setAchievementForm(emptyForm)
+    setAchievementListTab("drafts")
+    setSaveIndicator("saved")
+    draftSnapshotRef.current = JSON.stringify(emptyForm)
   }
 
   const beginEditAchievement = (achievement: AchievementRecord) => {
     setEditMode("achievement")
     setEditingId(achievement.id)
+    setActiveDraftId(null)
+    setSaveIndicator("saved")
+    setAchievementListTab("published")
     setImageSource("url")
 
-    const baseForm: AchievementFormState = {
+    setAchievementForm({
       title: achievement.title || "",
       issuer: achievement.issuer || "",
       platform: achievement.platform || "",
@@ -878,17 +906,20 @@ export default function AdminPage() {
       imageUrl: achievement.imageUrl || "",
       date: achievement.date || format(new Date(), "yyyy-MM-dd"),
       attachments: toAttachmentFormState(achievement.attachments),
-    }
-
-    const draft = readDraftFromStorage<AchievementFormState>("achievement", achievement.id)
-    const nextForm = draft ?? baseForm
-    setAchievementForm(nextForm)
-
-    achievementAutosaveSkipKeyRef.current = `${achievement.id}:achievement`
-    achievementAutosaveSnapshotRef.current = JSON.stringify({
-      ...baseForm,
-      attachments: normalizeAttachmentPayload(baseForm.attachments),
     })
+
+    draftSnapshotRef.current = ""
+  }
+
+  const beginEditAchievementDraft = (draft: LocalDraft<AchievementFormState>) => {
+    setEditMode("achievement")
+    setEditingId(null)
+    setActiveDraftId(draft.id)
+    setAchievementListTab("drafts")
+    setImageSource("url")
+    setAchievementForm(draft.data)
+    setSaveIndicator("saved")
+    draftSnapshotRef.current = JSON.stringify(draft.data)
   }
 
   const saveWriteup = async () => {
@@ -897,7 +928,7 @@ export default function AdminPage() {
       tags: writeupForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
       attachments: normalizeAttachmentPayload(writeupForm.attachments),
     }
-    const currentEditingId = editingId
+    const currentDraftId = activeDraftId
 
     try {
       if (editingId) {
@@ -912,12 +943,15 @@ export default function AdminPage() {
         })
       }
 
-      clearDraftFromStorage("writeup", currentEditingId)
-      writeupAutosaveSnapshotRef.current = JSON.stringify(payload)
-      toast({ title: "Write-up saved" })
-      setEditMode(null)
-      setEditingId(null)
+      if (currentDraftId) {
+        removeDraftFromStorage("writeup", currentDraftId)
+        setWriteupDrafts(readDraftCollectionFromStorage<WriteupFormState>("writeup"))
+      }
+
+      toast({ title: editingId ? "Write-up saved" : "Write-up published" })
+      closeEditor()
       setWriteupForm(createEmptyWriteupForm())
+      setWriteupListTab("published")
       await loadDashboardData()
     } catch (error) {
       toast({
@@ -935,6 +969,8 @@ export default function AdminPage() {
       attachments: normalizeAttachmentPayload(projectForm.attachments),
     }
 
+    const currentDraftId = activeDraftId
+
     try {
       if (editingId) {
         await fetchJson<{ ok: true }>(`/api/admin/projects/${editingId}`, {
@@ -948,11 +984,16 @@ export default function AdminPage() {
         })
       }
 
-      toast({ title: "Project saved" })
-      setEditMode(null)
-      setEditingId(null)
+      if (currentDraftId) {
+        removeDraftFromStorage("project", currentDraftId)
+        setProjectDrafts(readDraftCollectionFromStorage<ProjectFormState>("project"))
+      }
+
+      toast({ title: editingId ? "Project saved" : "Project published" })
+      closeEditor()
       setProjectForm(createEmptyProjectForm())
       setImageSource("url")
+      setProjectListTab("published")
       await loadDashboardData()
     } catch (error) {
       toast({
@@ -968,7 +1009,7 @@ export default function AdminPage() {
       ...achievementForm,
       attachments: normalizeAttachmentPayload(achievementForm.attachments),
     }
-    const currentEditingId = editingId
+    const currentDraftId = activeDraftId
 
     try {
       if (editingId) {
@@ -983,13 +1024,16 @@ export default function AdminPage() {
         })
       }
 
-      clearDraftFromStorage("achievement", currentEditingId)
-      achievementAutosaveSnapshotRef.current = JSON.stringify(payload)
-      toast({ title: "Achievement saved" })
-      setEditMode(null)
-      setEditingId(null)
+      if (currentDraftId) {
+        removeDraftFromStorage("achievement", currentDraftId)
+        setAchievementDrafts(readDraftCollectionFromStorage<AchievementFormState>("achievement"))
+      }
+
+      toast({ title: editingId ? "Achievement saved" : "Achievement published" })
+      closeEditor()
       setAchievementForm(createEmptyAchievementForm())
       setImageSource("url")
+      setAchievementListTab("published")
       await loadDashboardData()
     } catch (error) {
       toast({
@@ -999,6 +1043,32 @@ export default function AdminPage() {
       })
     }
   }
+
+  const closeEditor = () => {
+    setEditMode(null)
+    setEditingId(null)
+    setActiveDraftId(null)
+    setSaveIndicator("saved")
+    draftSnapshotRef.current = ""
+  }
+
+  const deleteLocalDraft = (kind: DraftKind, draftId: string) => {
+    removeDraftFromStorage(kind, draftId)
+
+    if (kind === "writeup") {
+      setWriteupDrafts(readDraftCollectionFromStorage<WriteupFormState>("writeup"))
+    } else if (kind === "project") {
+      setProjectDrafts(readDraftCollectionFromStorage<ProjectFormState>("project"))
+    } else {
+      setAchievementDrafts(readDraftCollectionFromStorage<AchievementFormState>("achievement"))
+    }
+
+    if (activeDraftId === draftId) {
+      closeEditor()
+    }
+  }
+
+  const saveIndicatorText = activeDraftId ? `Save: ${saveIndicator}` : "Save: manual"
 
   const addTechnicalArsenalItem = () => {
     setProfileForm((prev) => ({
@@ -1145,21 +1215,12 @@ export default function AdminPage() {
         method: "DELETE",
       })
 
-      if (itemToDelete.collection === "ctfWriteups") {
-        clearDraftFromStorage("writeup", itemToDelete.id)
-      }
-
-      if (itemToDelete.collection === "achievements") {
-        clearDraftFromStorage("achievement", itemToDelete.id)
-      }
-
       toast({ title: "Record purged" })
       setDeleteDialogOpen(false)
       setItemToDelete(null)
 
       if (editingId === itemToDelete.id) {
-        setEditMode(null)
-        setEditingId(null)
+        closeEditor()
       }
 
       await loadDashboardData()
@@ -1279,27 +1340,58 @@ export default function AdminPage() {
               <Button type="button" onClick={beginCreateWriteup} className="w-full bg-primary/20 text-primary border border-primary/30">
                 <Plus className="h-4 w-4 mr-2" /> New Write-up
               </Button>
-              <ScrollArea className="h-[600px] border rounded-lg bg-card/30">
-                <div className="p-4 space-y-2">
-                  {isDataLoading ? (
-                    <Loader2 className="animate-spin mx-auto mt-10" />
-                  ) : (
-                    writeups.map((writeup) => (
-                      <div
-                        key={writeup.id}
-                        className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", editingId === writeup.id ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
-                        onClick={() => beginEditWriteup(writeup)}
-                      >
-                        <div className="truncate">
-                          <p className="text-sm font-bold truncate">{writeup.title || "Untitled"}</p>
-                          <p className="text-[10px] text-muted-foreground">{writeup.competition || "No Competition"}</p>
-                        </div>
-                        <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(writeup.id, "ctfWriteups") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+              <Tabs value={writeupListTab} onValueChange={(value) => setWriteupListTab(value as "published" | "drafts")}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="published">Published</TabsTrigger>
+                  <TabsTrigger value="drafts">Drafts</TabsTrigger>
+                </TabsList>
+                <TabsContent value="published">
+                  <ScrollArea className="h-[560px] border rounded-lg bg-card/30">
+                    <div className="p-4 space-y-2">
+                      {isDataLoading ? (
+                        <Loader2 className="animate-spin mx-auto mt-10" />
+                      ) : (
+                        writeups.map((writeup) => (
+                          <div
+                            key={writeup.id}
+                            className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", editingId === writeup.id ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
+                            onClick={() => beginEditWriteup(writeup)}
+                          >
+                            <div className="truncate">
+                              <p className="text-sm font-bold truncate">{writeup.title || "Untitled"}</p>
+                              <p className="text-[10px] text-muted-foreground">{writeup.competition || "No Competition"}</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(writeup.id, "ctfWriteups") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="drafts">
+                  <ScrollArea className="h-[560px] border rounded-lg bg-card/30">
+                    <div className="p-4 space-y-2">
+                      {writeupDrafts.length ? (
+                        writeupDrafts.map((draft) => (
+                          <div
+                            key={draft.id}
+                            className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", activeDraftId === draft.id && editMode === "writeup" ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
+                            onClick={() => beginEditWriteupDraft(draft)}
+                          >
+                            <div className="truncate">
+                              <p className="text-sm font-bold truncate">{getDraftDisplayName("writeup", draft)}</p>
+                              <p className="text-[10px] text-muted-foreground">Local draft</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); deleteLocalDraft("writeup", draft.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No drafts yet.</p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
             </div>
             <div className="lg:col-span-8">
               {editMode === "writeup" ? (
@@ -1381,13 +1473,9 @@ export default function AdminPage() {
                       </Button>
                     )}
                     <div className="flex gap-2 ml-auto">
-                      {editingId ? (
-                        <div className="flex items-center px-3 text-xs text-muted-foreground">
-                          {isWriteupAutoSaving ? "Auto-saving..." : "Auto-save enabled"}
-                        </div>
-                      ) : null}
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveWriteup}><Save className="h-4 w-4 mr-2" /> Save</Button>
+                      <div className="flex items-center px-3 text-xs text-muted-foreground">{saveIndicatorText}</div>
+                      <Button type="button" variant="outline" onClick={closeEditor}>Cancel</Button>
+                      <Button type="button" onClick={saveWriteup}><Save className="h-4 w-4 mr-2" /> {editingId ? "Save" : "Publish"}</Button>
                     </div>
                   </div>
                 </Card>
@@ -1404,27 +1492,58 @@ export default function AdminPage() {
               <Button type="button" onClick={beginCreateProject} className="w-full bg-primary/20 text-primary border border-primary/30">
                 <Plus className="h-4 w-4 mr-2" /> New Project
               </Button>
-              <ScrollArea className="h-[600px] border rounded-lg bg-card/30">
-                <div className="p-4 space-y-2">
-                  {isDataLoading ? (
-                    <Loader2 className="animate-spin mx-auto mt-10" />
-                  ) : (
-                    projects.map((project) => (
-                      <div
-                        key={project.id}
-                        className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", editingId === project.id ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
-                        onClick={() => beginEditProject(project)}
-                      >
-                        <div className="truncate">
-                          <p className="text-sm font-bold truncate">{project.title || "Untitled"}</p>
-                          <p className="text-[10px] text-muted-foreground">{project.category || "General"}</p>
-                        </div>
-                        <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(project.id, "projects") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+              <Tabs value={projectListTab} onValueChange={(value) => setProjectListTab(value as "published" | "drafts")}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="published">Published</TabsTrigger>
+                  <TabsTrigger value="drafts">Drafts</TabsTrigger>
+                </TabsList>
+                <TabsContent value="published">
+                  <ScrollArea className="h-[560px] border rounded-lg bg-card/30">
+                    <div className="p-4 space-y-2">
+                      {isDataLoading ? (
+                        <Loader2 className="animate-spin mx-auto mt-10" />
+                      ) : (
+                        projects.map((project) => (
+                          <div
+                            key={project.id}
+                            className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", editingId === project.id ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
+                            onClick={() => beginEditProject(project)}
+                          >
+                            <div className="truncate">
+                              <p className="text-sm font-bold truncate">{project.title || "Untitled"}</p>
+                              <p className="text-[10px] text-muted-foreground">{project.category || "General"}</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(project.id, "projects") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="drafts">
+                  <ScrollArea className="h-[560px] border rounded-lg bg-card/30">
+                    <div className="p-4 space-y-2">
+                      {projectDrafts.length ? (
+                        projectDrafts.map((draft) => (
+                          <div
+                            key={draft.id}
+                            className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", activeDraftId === draft.id && editMode === "project" ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
+                            onClick={() => beginEditProjectDraft(draft)}
+                          >
+                            <div className="truncate">
+                              <p className="text-sm font-bold truncate">{getDraftDisplayName("project", draft)}</p>
+                              <p className="text-[10px] text-muted-foreground">Local draft</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); deleteLocalDraft("project", draft.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No drafts yet.</p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
             </div>
             <div className="lg:col-span-8">
               {editMode === "project" ? (
@@ -1511,8 +1630,9 @@ export default function AdminPage() {
                       </Button>
                     )}
                     <div className="flex gap-2 ml-auto">
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveProject}><Save className="h-4 w-4 mr-2" /> Save Project</Button>
+                      <div className="flex items-center px-3 text-xs text-muted-foreground">{saveIndicatorText}</div>
+                      <Button type="button" variant="outline" onClick={closeEditor}>Cancel</Button>
+                      <Button type="button" onClick={saveProject}><Save className="h-4 w-4 mr-2" /> {editingId ? "Save Project" : "Publish Project"}</Button>
                     </div>
                   </div>
                 </Card>
@@ -1529,27 +1649,58 @@ export default function AdminPage() {
               <Button type="button" onClick={beginCreateAchievement} className="w-full bg-primary/20 text-primary border border-primary/30">
                 <Plus className="h-4 w-4 mr-2" /> New Achievement
               </Button>
-              <ScrollArea className="h-[600px] border rounded-lg bg-card/30">
-                <div className="p-4 space-y-2">
-                  {isDataLoading ? (
-                    <Loader2 className="animate-spin mx-auto mt-10" />
-                  ) : (
-                    achievements.map((achievement) => (
-                      <div
-                        key={achievement.id}
-                        className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", editingId === achievement.id ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
-                        onClick={() => beginEditAchievement(achievement)}
-                      >
-                        <div className="truncate">
-                          <p className="text-sm font-bold truncate">{achievement.title || "Untitled"}</p>
-                          <p className="text-[10px] text-muted-foreground">{achievement.issuer || "No Issuer"}</p>
-                        </div>
-                        <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(achievement.id, "achievements") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+              <Tabs value={achievementListTab} onValueChange={(value) => setAchievementListTab(value as "published" | "drafts")}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="published">Published</TabsTrigger>
+                  <TabsTrigger value="drafts">Drafts</TabsTrigger>
+                </TabsList>
+                <TabsContent value="published">
+                  <ScrollArea className="h-[560px] border rounded-lg bg-card/30">
+                    <div className="p-4 space-y-2">
+                      {isDataLoading ? (
+                        <Loader2 className="animate-spin mx-auto mt-10" />
+                      ) : (
+                        achievements.map((achievement) => (
+                          <div
+                            key={achievement.id}
+                            className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", editingId === achievement.id ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
+                            onClick={() => beginEditAchievement(achievement)}
+                          >
+                            <div className="truncate">
+                              <p className="text-sm font-bold truncate">{achievement.title || "Untitled"}</p>
+                              <p className="text-[10px] text-muted-foreground">{achievement.issuer || "No Issuer"}</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); triggerDelete(achievement.id, "achievements") }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="drafts">
+                  <ScrollArea className="h-[560px] border rounded-lg bg-card/30">
+                    <div className="p-4 space-y-2">
+                      {achievementDrafts.length ? (
+                        achievementDrafts.map((draft) => (
+                          <div
+                            key={draft.id}
+                            className={cn("p-3 rounded-lg border flex justify-between group items-center cursor-pointer", activeDraftId === draft.id && editMode === "achievement" ? "bg-primary/10 border-primary/50" : "bg-card border-border/50")}
+                            onClick={() => beginEditAchievementDraft(draft)}
+                          >
+                            <div className="truncate">
+                              <p className="text-sm font-bold truncate">{getDraftDisplayName("achievement", draft)}</p>
+                              <p className="text-[10px] text-muted-foreground">Local draft</p>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); deleteLocalDraft("achievement", draft.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No drafts yet.</p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
             </div>
             <div className="lg:col-span-8">
               {editMode === "achievement" ? (
@@ -1633,13 +1784,9 @@ export default function AdminPage() {
                       </Button>
                     )}
                     <div className="flex gap-2 ml-auto">
-                      {editingId ? (
-                        <div className="flex items-center px-3 text-xs text-muted-foreground">
-                          {isAchievementAutoSaving ? "Auto-saving..." : "Auto-save enabled"}
-                        </div>
-                      ) : null}
-                      <Button type="button" variant="outline" onClick={() => setEditMode(null)}>Cancel</Button>
-                      <Button type="button" onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> Save Record</Button>
+                      <div className="flex items-center px-3 text-xs text-muted-foreground">{saveIndicatorText}</div>
+                      <Button type="button" variant="outline" onClick={closeEditor}>Cancel</Button>
+                      <Button type="button" onClick={saveAchievement}><Save className="h-4 w-4 mr-2" /> {editingId ? "Save Record" : "Publish"}</Button>
                     </div>
                   </div>
                 </Card>
