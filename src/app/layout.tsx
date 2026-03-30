@@ -48,6 +48,25 @@ function getFallbackKeywords(name: string, igUsername: string): string[] {
   ].filter(Boolean);
 }
 
+function normalizeTitleTemplate(template: string | undefined, fallbackName: string): string {
+  const trimmed = template?.trim() ?? '';
+  if (!trimmed) {
+    return `%s | ${fallbackName}`;
+  }
+
+  if (trimmed.includes('%s')) {
+    return trimmed;
+  }
+
+  // Support admin-friendly placeholders while keeping Next.js `%s` contract.
+  const withPlaceholder = trimmed.replace(/\{title\}|\[title\]|<title>/gi, '%s');
+  if (withPlaceholder.includes('%s')) {
+    return withPlaceholder;
+  }
+
+  return `%s | ${trimmed}`;
+}
+
 const getSeoProfileSettings = cache(async () => {
   const profile = await getProfileSettings().catch(() => null);
   return normalizeProfileSettings(profile);
@@ -70,10 +89,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const igUsername =
     profile.instagramUrl?.split('/').filter(Boolean).pop() || '';
   const customKeywords = (seo.keywords ?? []).map((entry) => entry.trim()).filter(Boolean);
-  const rawTitleTemplate = seo.titleTemplate?.trim() ?? '';
-  const titleTemplate = rawTitleTemplate.includes('%s')
-    ? rawTitleTemplate
-    : `%s | ${name}`;
+  const titleTemplate = normalizeTitleTemplate(seo.titleTemplate, name);
   const defaultTitle = seo.defaultTitle?.trim() || `${name} | Cybersecurity Portfolio`;
   const siteName = seo.siteName?.trim() || `${name} Portfolio`;
   const locale = seo.locale?.trim() || 'id_ID';
