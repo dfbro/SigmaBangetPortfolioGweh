@@ -23,32 +23,40 @@ export function Navbar() {
   const [isOpen, setIsOpen] = React.useState(false)
   const [profileSettings, setProfileSettings] = React.useState<ProfileSettingsRecord>(getDefaultProfileSettings)
 
+  const loadProfile = React.useCallback(async () => {
+    try {
+      const payload = await fetchJson<ProfileSettingsRecord>("/api/public/profile", {
+        cache: "no-store",
+      })
+      setProfileSettings(normalizeProfileSettings(payload))
+    } catch {
+      setProfileSettings(getDefaultProfileSettings())
+    }
+  }, [])
+
   React.useEffect(() => {
     let active = true
 
-    const loadProfile = async () => {
-      try {
-        const payload = await fetchJson<ProfileSettingsRecord>("/api/public/profile")
-        if (!active) {
-          return
-        }
-
-        setProfileSettings(normalizeProfileSettings(payload))
-      } catch {
-        if (!active) {
-          return
-        }
-
-        setProfileSettings(getDefaultProfileSettings())
+    const syncProfile = async () => {
+      if (!active) {
+        return
       }
+
+      await loadProfile()
     }
 
-    void loadProfile()
+    const handleProfileUpdated = () => {
+      void syncProfile()
+    }
+
+    window.addEventListener("profile:updated", handleProfileUpdated)
+    void syncProfile()
 
     return () => {
       active = false
+      window.removeEventListener("profile:updated", handleProfileUpdated)
     }
-  }, [])
+  }, [loadProfile])
 
   const baseDefaultBrandName = (profileSettings.displayName ?? "My Name").split(" ")[0] || "My"
   const defaultBrandName = `${baseDefaultBrandName}'s Portfolio`

@@ -31,6 +31,7 @@ import {
 import { GlowingEffect } from "@/components/ui/glowing-effect"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { format } from "date-fns"
+import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { fetchJson } from "@/lib/api-client"
@@ -548,6 +549,7 @@ function createEmptyProfileForm(): ProfileFormState {
 }
 
 export default function AdminPage() {
+  const router = useRouter()
   const { toast } = useToast()
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
   const [isAuthLoading, setIsAuthLoading] = React.useState(true)
@@ -1504,6 +1506,11 @@ export default function AdminPage() {
 
       setProfileForm(toProfileFormState(payload))
       toast({ title: "Profile updated" })
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("profile:updated"))
+      }
+      router.refresh()
     } catch (error) {
       toast({
         variant: "destructive",
