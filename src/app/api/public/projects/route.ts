@@ -4,5 +4,9 @@ import type { ProjectRecord } from '@/lib/portfolio-types';
 
 export async function GET() {
   const rows = await listProjects();
-  return NextResponse.json(rows satisfies ProjectRecord[]);
+  return NextResponse.json(rows satisfies ProjectRecord[], {
+    headers: {
+      'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400',
+    },
+  });
 }

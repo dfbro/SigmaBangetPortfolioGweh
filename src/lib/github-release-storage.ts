@@ -33,7 +33,7 @@ interface GithubUploadResponse {
   errors?: Array<{ resource: string; code: string; field?: string; message: string }>;
 }
 
-const RELEASE_CACHE_TTL_MS = 10_000;
+const RELEASE_CACHE_TTL_MS = 300_000;
 
 type ReleaseCacheEntry = {
   expiresAt: number;

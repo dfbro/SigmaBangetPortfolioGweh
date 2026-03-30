@@ -37,7 +37,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ name: s
 
   const headers = new Headers();
   headers.set('Content-Type', result.contentType || 'application/octet-stream');
-  headers.set('Cache-Control', 'public, max-age=3600');
+  headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
   headers.set('Content-Disposition', `inline; filename="${toSafeInlineFileName(assetName)}"`);
 
   const contentLength = result.response.headers.get('content-length');
