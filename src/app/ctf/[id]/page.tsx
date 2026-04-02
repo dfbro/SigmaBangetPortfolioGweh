@@ -25,7 +25,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { fetchJson } from "@/lib/api-client"
-import type { WriteupRecord } from "@/lib/portfolio-types"
+import type { ProfileSettingsRecord, WriteupRecord } from "@/lib/portfolio-types"
 
 export default function WriteupDetailPage() {
   const params = useParams()
@@ -34,6 +34,11 @@ export default function WriteupDetailPage() {
   const [isFlagRevealed, setIsFlagRevealed] = React.useState(false)
   const [data, setData] = React.useState<WriteupRecord | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [profile, setProfile] = React.useState<ProfileSettingsRecord | null>(null)
+  const [profileImageDataUrl, setProfileImageDataUrl] = React.useState<string | null>(null)
+  const [isExportingPdf, setIsExportingPdf] = React.useState(false)
+  const exportCoverRef = React.useRef<HTMLDivElement | null>(null)
+  const exportContentRef = React.useRef<HTMLDivElement | null>(null)
 
   React.useEffect(() => {
     let isActive = true
@@ -65,6 +70,168 @@ export default function WriteupDetailPage() {
       isActive = false
     }
   }, [id])
+
+  React.useEffect(() => {
+    let isActive = true
+
+    const toAbsoluteUrl = (value?: string) => {
+      if (!value || typeof window === "undefined") {
+        return null
+      }
+
+      if (value.startsWith("http://") || value.startsWith("https://")) {
+        return value
+      }
+
+      return new URL(value, window.location.origin).toString()
+    }
+
+    const blobToDataUrl = (blob: Blob) => {
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          if (typeof reader.result === "string") {
+            resolve(reader.result)
+            return
+          }
+          reject(new Error("Unable to read image"))
+        }
+        reader.onerror = () => reject(reader.error ?? new Error("Unable to read image"))
+        reader.readAsDataURL(blob)
+      })
+    }
+
+    const loadProfile = async () => {
+      try {
+        const profilePayload = await fetchJson<ProfileSettingsRecord>("/api/public/profile")
+        if (!isActive) {
+          return
+        }
+
+        setProfile(profilePayload)
+
+        const imageUrl = toAbsoluteUrl(profilePayload.profileImageUrl)
+        if (!imageUrl) {
+          setProfileImageDataUrl(null)
+          return
+        }
+
+        const response = await fetch(imageUrl)
+        if (!response.ok) {
+          throw new Error("Failed to fetch profile image")
+        }
+
+        const blob = await response.blob()
+        const dataUrl = await blobToDataUrl(blob)
+        if (isActive) {
+          setProfileImageDataUrl(dataUrl)
+        }
+      } catch {
+        if (isActive) {
+          setProfile(null)
+          setProfileImageDataUrl(null)
+        }
+      }
+    }
+
+    void loadProfile()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  const handleExportPdf = React.useCallback(async () => {
+    if (!data || isExportingPdf || !exportCoverRef.current || !exportContentRef.current) {
+      return
+    }
+
+    setIsExportingPdf(true)
+
+    try {
+      const [{ default: html2canvas }, { default: JsPdf }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ])
+
+      // Ensure hidden export nodes are painted before capture.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+
+      const pdf = new JsPdf({
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4",
+      })
+
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const margin = 28
+
+      const coverCanvas = await html2canvas(exportCoverRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#071022",
+      })
+
+      const coverImage = coverCanvas.toDataURL("image/png")
+      pdf.addImage(coverImage, "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST")
+
+      const contentCanvas = await html2canvas(exportContentRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      })
+
+      const printableWidth = pageWidth - margin * 2
+      const printableHeight = pageHeight - margin * 2
+      const pixelPerPoint = contentCanvas.width / printableWidth
+      const pageSliceHeightPx = Math.floor(printableHeight * pixelPerPoint)
+
+      let offsetY = 0
+      while (offsetY < contentCanvas.height) {
+        const sliceHeight = Math.min(pageSliceHeightPx, contentCanvas.height - offsetY)
+        const pageCanvas = document.createElement("canvas")
+        pageCanvas.width = contentCanvas.width
+        pageCanvas.height = sliceHeight
+
+        const context = pageCanvas.getContext("2d")
+        if (!context) {
+          throw new Error("Unable to render PDF page")
+        }
+
+        context.drawImage(
+          contentCanvas,
+          0,
+          offsetY,
+          contentCanvas.width,
+          sliceHeight,
+          0,
+          0,
+          contentCanvas.width,
+          sliceHeight
+        )
+
+        const pageImage = pageCanvas.toDataURL("image/png")
+        const renderedHeight = sliceHeight / pixelPerPoint
+        pdf.addPage()
+        pdf.addImage(pageImage, "PNG", margin, margin, printableWidth, renderedHeight, undefined, "FAST")
+        offsetY += sliceHeight
+      }
+
+      const slug = (data.title || "writeup")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+
+      pdf.save(`${slug || "writeup"}.pdf`)
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }, [data, isExportingPdf])
 
   if (isLoading) {
     return (
@@ -99,18 +266,33 @@ export default function WriteupDetailPage() {
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         {/* Header Section */}
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-primary border-primary/30 uppercase text-[10px] tracking-widest">
-              {data.category}
-            </Badge>
-            <span className={cn(
-              "text-[10px] uppercase font-bold px-2 py-0.5 rounded border",
-              data.difficulty === "Hard" ? "border-red-500/50 text-red-400" : 
-              data.difficulty === "Medium" ? "border-yellow-500/50 text-yellow-400" : 
-              "border-green-500/50 text-green-400"
-            )}>
-              {data.difficulty}
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-primary border-primary/30 uppercase text-[10px] tracking-widest">
+                {data.category}
+              </Badge>
+              <span className={cn(
+                "text-[10px] uppercase font-bold px-2 py-0.5 rounded border",
+                data.difficulty === "Hard" ? "border-red-500/50 text-red-400" : 
+                data.difficulty === "Medium" ? "border-yellow-500/50 text-yellow-400" : 
+                "border-green-500/50 text-green-400"
+              )}>
+                {data.difficulty}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto border-primary/40 text-primary hover:bg-primary/10"
+              onClick={() => void handleExportPdf()}
+              disabled={isExportingPdf}
+            >
+              {isExportingPdf ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Exporting PDF...</>
+              ) : (
+                <><Download className="h-4 w-4 mr-2" /> Export Write-up PDF</>
+              )}
+            </Button>
           </div>
           <h1 className="text-5xl font-headline font-bold leading-tight tracking-tight">
             {data.title}
@@ -240,6 +422,76 @@ export default function WriteupDetailPage() {
             )}
           </section>
         </article>
+      </div>
+
+      {/* Hidden print layout used for PDF rendering */}
+      <div className="fixed -left-[9999px] top-0 pointer-events-none" aria-hidden>
+        <div
+          ref={exportCoverRef}
+          style={{ width: 794, height: 1123 }}
+          className="relative overflow-hidden text-white"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.28),transparent_48%),radial-gradient(circle_at_80%_10%,rgba(34,197,94,0.25),transparent_45%),linear-gradient(145deg,#020617_0%,#0f172a_55%,#111827_100%)]" />
+          <div className="absolute -top-32 -right-24 h-80 w-80 rounded-full border border-cyan-300/30" />
+          <div className="absolute -bottom-28 -left-20 h-72 w-72 rounded-full border border-emerald-300/30" />
+
+          <div className="relative h-full w-full px-16 py-20 flex flex-col items-center justify-center text-center">
+            <p className="text-sm uppercase tracking-[0.4em] text-cyan-200/80">Write Up Export</p>
+            <h1 className="mt-6 text-5xl leading-tight font-bold max-w-[640px]">
+              {(data.competition || "Platform Name") + " - " + (data.title || "Challenge Name")}
+            </h1>
+
+            <div className="mt-14 h-56 w-56 rounded-full border-4 border-white/20 bg-slate-900/60 overflow-hidden flex items-center justify-center">
+              {profileImageDataUrl ? (
+                <img
+                  src={profileImageDataUrl}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-7xl font-semibold text-cyan-200/90">
+                  {(profile?.displayName || "P").charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            <h2 className="mt-8 text-3xl font-semibold tracking-wide">
+              {profile?.displayName || "Profile Name"}
+            </h2>
+            <div className="mt-5 rounded-2xl border border-white/20 bg-white/5 px-8 py-5 max-w-[680px] backdrop-blur-sm">
+              <p className="text-base leading-relaxed text-slate-100">
+                {(profile?.instagramUrl || "Social Media") + "  •  " + (profile?.githubUrl || "Github")}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          ref={exportContentRef}
+          style={{ width: 794 }}
+          className="bg-white text-slate-900 px-14 py-14"
+        >
+          <div className="border-b border-slate-200 pb-6">
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Write Up Content</p>
+            <h2 className="mt-2 text-3xl font-bold">{data.title || "Challenge"}</h2>
+            <p className="mt-1 text-sm text-slate-500">{data.competition || "CTF"}</p>
+          </div>
+
+          <section className="mt-8">
+            <h3 className="text-lg font-semibold">Overview</h3>
+            <p className="mt-3 whitespace-pre-wrap text-[15px] leading-7 text-slate-700">
+              {data.summary || "No summary available."}
+            </p>
+          </section>
+
+          <section className="mt-10">
+            <h3 className="text-lg font-semibold">Documentation</h3>
+            <div
+              className="mt-3 text-[15px] leading-7 text-slate-800 prose max-w-none prose-slate"
+              dangerouslySetInnerHTML={{ __html: data.content || "" }}
+            />
+          </section>
+        </div>
       </div>
     </div>
   )
