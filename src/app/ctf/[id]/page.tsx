@@ -18,6 +18,8 @@ import {
   FileText,
   Code,
   Download,
+  Github,
+  Instagram,
   Paperclip,
   Loader2,
   Eye,
@@ -39,6 +41,28 @@ export default function WriteupDetailPage() {
   const [isExportingPdf, setIsExportingPdf] = React.useState(false)
   const exportCoverRef = React.useRef<HTMLDivElement | null>(null)
   const exportContentRef = React.useRef<HTMLDivElement | null>(null)
+  const exportInstagramRef = React.useRef<HTMLAnchorElement | null>(null)
+  const exportGithubRef = React.useRef<HTMLAnchorElement | null>(null)
+
+  const toAbsoluteUrl = React.useCallback((value?: string) => {
+    if (!value) {
+      return null
+    }
+
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      return value
+    }
+
+    if (value.startsWith("//")) {
+      return `https:${value}`
+    }
+
+    if (typeof window === "undefined") {
+      return value
+    }
+
+    return new URL(value, window.location.origin).toString()
+  }, [])
 
   React.useEffect(() => {
     let isActive = true
@@ -74,18 +98,6 @@ export default function WriteupDetailPage() {
   React.useEffect(() => {
     let isActive = true
 
-    const toAbsoluteUrl = (value?: string) => {
-      if (!value || typeof window === "undefined") {
-        return null
-      }
-
-      if (value.startsWith("http://") || value.startsWith("https://")) {
-        return value
-      }
-
-      return new URL(value, window.location.origin).toString()
-    }
-
     const blobToDataUrl = (blob: Blob) => {
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
@@ -109,8 +121,8 @@ export default function WriteupDetailPage() {
         }
 
         setProfile(profilePayload)
-
         const imageUrl = toAbsoluteUrl(profilePayload.profileImageUrl)
+
         if (!imageUrl) {
           setProfileImageDataUrl(null)
           return
@@ -118,7 +130,7 @@ export default function WriteupDetailPage() {
 
         const response = await fetch(imageUrl)
         if (!response.ok) {
-          throw new Error("Failed to fetch profile image")
+          throw new Error("Failed to fetch image")
         }
 
         const blob = await response.blob()
@@ -139,7 +151,7 @@ export default function WriteupDetailPage() {
     return () => {
       isActive = false
     }
-  }, [])
+  }, [toAbsoluteUrl])
 
   const handleExportPdf = React.useCallback(async () => {
     if (!data || isExportingPdf || !exportCoverRef.current || !exportContentRef.current) {
@@ -154,7 +166,6 @@ export default function WriteupDetailPage() {
         import("jspdf"),
       ])
 
-      // Ensure hidden export nodes are painted before capture.
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => resolve())
@@ -176,9 +187,30 @@ export default function WriteupDetailPage() {
         useCORS: true,
         backgroundColor: "#071022",
       })
+      pdf.addImage(coverCanvas.toDataURL("image/png"), "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST")
 
-      const coverImage = coverCanvas.toDataURL("image/png")
-      pdf.addImage(coverImage, "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST")
+      const addCoverLink = (linkRef: React.RefObject<HTMLAnchorElement | null>, url?: string | null) => {
+        if (!linkRef.current || !exportCoverRef.current || !url) {
+          return
+        }
+
+        const coverRect = exportCoverRef.current.getBoundingClientRect()
+        const linkRect = linkRef.current.getBoundingClientRect()
+        const scaleX = pageWidth / coverRect.width
+        const scaleY = pageHeight / coverRect.height
+
+        pdf.setPage(1)
+        pdf.link(
+          (linkRect.left - coverRect.left) * scaleX,
+          (linkRect.top - coverRect.top) * scaleY,
+          linkRect.width * scaleX,
+          linkRect.height * scaleY,
+          { url }
+        )
+      }
+
+      addCoverLink(exportInstagramRef, toAbsoluteUrl(profile?.instagramUrl))
+      addCoverLink(exportGithubRef, toAbsoluteUrl(profile?.githubUrl))
 
       const contentCanvas = await html2canvas(exportContentRef.current, {
         scale: 2,
@@ -188,38 +220,84 @@ export default function WriteupDetailPage() {
 
       const printableWidth = pageWidth - margin * 2
       const printableHeight = pageHeight - margin * 2
-      const pixelPerPoint = contentCanvas.width / printableWidth
-      const pageSliceHeightPx = Math.floor(printableHeight * pixelPerPoint)
+      const pxPerPt = contentCanvas.width / printableWidth
+      const slicePx = Math.floor(printableHeight * pxPerPt)
 
-      let offsetY = 0
-      while (offsetY < contentCanvas.height) {
-        const sliceHeight = Math.min(pageSliceHeightPx, contentCanvas.height - offsetY)
+      let yOffset = 0
+      while (yOffset < contentCanvas.height) {
+        const currentSlice = Math.min(slicePx, contentCanvas.height - yOffset)
         const pageCanvas = document.createElement("canvas")
         pageCanvas.width = contentCanvas.width
-        pageCanvas.height = sliceHeight
+        pageCanvas.height = currentSlice
 
         const context = pageCanvas.getContext("2d")
         if (!context) {
-          throw new Error("Unable to render PDF page")
+          throw new Error("Unable to render canvas")
         }
 
         context.drawImage(
           contentCanvas,
           0,
-          offsetY,
+          yOffset,
           contentCanvas.width,
-          sliceHeight,
+          currentSlice,
           0,
           0,
           contentCanvas.width,
-          sliceHeight
+          currentSlice
         )
 
-        const pageImage = pageCanvas.toDataURL("image/png")
-        const renderedHeight = sliceHeight / pixelPerPoint
         pdf.addPage()
-        pdf.addImage(pageImage, "PNG", margin, margin, printableWidth, renderedHeight, undefined, "FAST")
-        offsetY += sliceHeight
+        pdf.addImage(
+          pageCanvas.toDataURL("image/png"),
+          "PNG",
+          margin,
+          margin,
+          printableWidth,
+          currentSlice / pxPerPt,
+          undefined,
+          "FAST"
+        )
+
+        yOffset += currentSlice
+      }
+
+      if (exportContentRef.current) {
+        const contentRect = exportContentRef.current.getBoundingClientRect()
+        const contentScale = contentCanvas.width / contentRect.width
+        const attachmentLinks = Array.from(
+          exportContentRef.current.querySelectorAll<HTMLAnchorElement>("[data-export-attachment-link='true']")
+        )
+
+        for (const linkElement of attachmentLinks) {
+          const href = toAbsoluteUrl(linkElement.getAttribute("href") || undefined)
+          if (!href) {
+            continue
+          }
+
+          const rect = linkElement.getBoundingClientRect()
+          const leftPx = (rect.left - contentRect.left) * contentScale
+          const topPx = (rect.top - contentRect.top) * contentScale
+          const widthPx = rect.width * contentScale
+          const heightPx = rect.height * contentScale
+
+          const contentPageIndex = Math.floor(topPx / slicePx)
+          const yWithinPagePx = topPx - contentPageIndex * slicePx
+          const targetPage = 2 + contentPageIndex
+
+          if (targetPage > pdf.getNumberOfPages()) {
+            continue
+          }
+
+          pdf.setPage(targetPage)
+          pdf.link(
+            margin + leftPx / pxPerPt,
+            margin + yWithinPagePx / pxPerPt,
+            widthPx / pxPerPt,
+            heightPx / pxPerPt,
+            { url: href }
+          )
+        }
       }
 
       const slug = (data.title || "writeup")
@@ -231,7 +309,7 @@ export default function WriteupDetailPage() {
     } finally {
       setIsExportingPdf(false)
     }
-  }, [data, isExportingPdf])
+  }, [data, isExportingPdf, profile, toAbsoluteUrl])
 
   if (isLoading) {
     return (
@@ -290,7 +368,7 @@ export default function WriteupDetailPage() {
               {isExportingPdf ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Exporting PDF...</>
               ) : (
-                <><Download className="h-4 w-4 mr-2" /> Export Write-up PDF</>
+                <><Download className="h-4 w-4 mr-2" /> Export as PDF</>
               )}
             </Button>
           </div>
@@ -424,7 +502,6 @@ export default function WriteupDetailPage() {
         </article>
       </div>
 
-      {/* Hidden print layout used for PDF rendering */}
       <div className="fixed -left-[9999px] top-0 pointer-events-none" aria-hidden>
         <div
           ref={exportCoverRef}
@@ -443,11 +520,17 @@ export default function WriteupDetailPage() {
 
             <div className="mt-14 h-56 w-56 rounded-full border-4 border-white/20 bg-slate-900/60 overflow-hidden flex items-center justify-center">
               {profileImageDataUrl ? (
-                <img
-                  src={profileImageDataUrl}
-                  alt="Profile"
-                  className="h-full w-full object-cover"
-                />
+                <div
+                  className="h-full w-full rounded-full overflow-hidden"
+                  style={{ clipPath: "circle(50% at 50% 50%)" }}
+                >
+                  <img
+                    src={profileImageDataUrl}
+                    alt="Profile"
+                    className="block h-full w-full rounded-full object-cover object-center scale-110"
+                    style={{ clipPath: "circle(50% at 50% 50%)" }}
+                  />
+                </div>
               ) : (
                 <span className="text-7xl font-semibold text-cyan-200/90">
                   {(profile?.displayName || "P").charAt(0).toUpperCase()}
@@ -459,9 +542,28 @@ export default function WriteupDetailPage() {
               {profile?.displayName || "Profile Name"}
             </h2>
             <div className="mt-5 rounded-2xl border border-white/20 bg-white/5 px-8 py-5 max-w-[680px] backdrop-blur-sm">
-              <p className="text-base leading-relaxed text-slate-100">
-                {(profile?.instagramUrl || "Social Media") + "  •  " + (profile?.githubUrl || "Github")}
-              </p>
+              <div className="flex items-center justify-center gap-5">
+                <a
+                  ref={exportInstagramRef}
+                  href={toAbsoluteUrl(profile?.instagramUrl) || "#"}
+                  className="h-12 w-12 rounded-full border border-white/30 bg-white/10 flex items-center justify-center"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram"
+                >
+                  <Instagram className="h-6 w-6 text-slate-100" />
+                </a>
+                <a
+                  ref={exportGithubRef}
+                  href={toAbsoluteUrl(profile?.githubUrl) || "#"}
+                  className="h-12 w-12 rounded-full border border-white/30 bg-white/10 flex items-center justify-center"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="GitHub"
+                >
+                  <Github className="h-6 w-6 text-slate-100" />
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -490,6 +592,38 @@ export default function WriteupDetailPage() {
               className="mt-3 text-[15px] leading-7 text-slate-800 prose max-w-none prose-slate"
               dangerouslySetInnerHTML={{ __html: data.content || "" }}
             />
+          </section>
+
+          <section className="mt-12 border-t border-slate-200 pt-8 space-y-8">
+            {(data.attachments || []).length > 0 ? (
+              <div>
+                <h3 className="text-lg font-semibold">Attachments</h3>
+                <ul className="mt-3 space-y-2">
+                  {(data.attachments || []).map((attachment, index) => (
+                    <li key={`${attachment.url}-${index}`} className="text-[14px] leading-6 text-slate-700 break-all">
+                      {toAbsoluteUrl(attachment.url) ? (
+                        <a
+                          href={toAbsoluteUrl(attachment.url) || "#"}
+                          data-export-attachment-link="true"
+                          className="text-sky-700 underline"
+                        >
+                          {attachment.name || `Attachment ${index + 1}`}
+                        </a>
+                      ) : (
+                        <span>{attachment.name || `Attachment ${index + 1}`}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div>
+              <h3 className="text-lg font-semibold">Flag</h3>
+              <p className="mt-3 rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 font-mono text-[14px] text-slate-800 break-all">
+                {data.flag || "FLAG_RECOVERED_SUCCESSFULLY"}
+              </p>
+            </div>
           </section>
         </div>
       </div>
