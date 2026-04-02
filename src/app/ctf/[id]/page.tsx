@@ -39,6 +39,7 @@ export default function WriteupDetailPage() {
   const [profile, setProfile] = React.useState<ProfileSettingsRecord | null>(null)
   const [profileImageDataUrl, setProfileImageDataUrl] = React.useState<string | null>(null)
   const [isExportingPdf, setIsExportingPdf] = React.useState(false)
+  const [isCacheLoading, setIsCacheLoading] = React.useState(false)
   const exportCoverRef = React.useRef<HTMLDivElement | null>(null)
   const exportContentRef = React.useRef<HTMLDivElement | null>(null)
   const exportInstagramRef = React.useRef<HTMLAnchorElement | null>(null)
@@ -63,6 +64,48 @@ export default function WriteupDetailPage() {
 
     return new URL(value, window.location.origin).toString()
   }, [])
+
+  const blobToDataUrl = (blob: Blob) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result)
+          return
+        }
+        reject(new Error("Unable to read image"))
+      }
+      reader.onerror = () => reject(reader.error ?? new Error("Unable to read image"))
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  const loadAndCacheProfile = React.useCallback(async () => {
+    try {
+      const profilePayload = await fetchJson<ProfileSettingsRecord>("/api/public/profile")
+      setProfile(profilePayload)
+      const imageUrl = toAbsoluteUrl(profilePayload.profileImageUrl)
+
+      if (!imageUrl) {
+        setProfileImageDataUrl(null)
+        return profilePayload
+      }
+
+      const response = await fetch(imageUrl)
+      if (!response.ok) {
+        throw new Error("Failed to fetch image")
+      }
+
+      const blob = await response.blob()
+      const dataUrl = await blobToDataUrl(blob)
+      setProfileImageDataUrl(dataUrl)
+      return profilePayload
+    } catch {
+      setProfile(null)
+      setProfileImageDataUrl(null)
+      throw new Error("Failed to load profile")
+    }
+  }, [toAbsoluteUrl])
 
   React.useEffect(() => {
     let isActive = true
@@ -98,50 +141,15 @@ export default function WriteupDetailPage() {
   React.useEffect(() => {
     let isActive = true
 
-    const blobToDataUrl = (blob: Blob) => {
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          if (typeof reader.result === "string") {
-            resolve(reader.result)
-            return
-          }
-          reject(new Error("Unable to read image"))
-        }
-        reader.onerror = () => reject(reader.error ?? new Error("Unable to read image"))
-        reader.readAsDataURL(blob)
-      })
-    }
-
     const loadProfile = async () => {
       try {
-        const profilePayload = await fetchJson<ProfileSettingsRecord>("/api/public/profile")
+        const profilePayload = await loadAndCacheProfile()
         if (!isActive) {
           return
         }
-
-        setProfile(profilePayload)
-        const imageUrl = toAbsoluteUrl(profilePayload.profileImageUrl)
-
-        if (!imageUrl) {
-          setProfileImageDataUrl(null)
-          return
-        }
-
-        const response = await fetch(imageUrl)
-        if (!response.ok) {
-          throw new Error("Failed to fetch image")
-        }
-
-        const blob = await response.blob()
-        const dataUrl = await blobToDataUrl(blob)
-        if (isActive) {
-          setProfileImageDataUrl(dataUrl)
-        }
       } catch {
-        if (isActive) {
-          setProfile(null)
-          setProfileImageDataUrl(null)
+        if (!isActive) {
+          return
         }
       }
     }
@@ -151,16 +159,24 @@ export default function WriteupDetailPage() {
     return () => {
       isActive = false
     }
-  }, [toAbsoluteUrl])
+  }, [loadAndCacheProfile])
 
   const handleExportPdf = React.useCallback(async () => {
-    if (!data || isExportingPdf || !exportCoverRef.current || !exportContentRef.current) {
+    if (!data || isExportingPdf || isCacheLoading || !exportCoverRef.current || !exportContentRef.current) {
       return
     }
 
-    setIsExportingPdf(true)
+    setIsCacheLoading(true)
 
     try {
+      // Load fresh CTF data and profile for export
+      const freshWriteup = await fetchJson<WriteupRecord>(`/api/public/writeups/${id}`)
+      setData(freshWriteup)
+      await loadAndCacheProfile()
+
+      setIsCacheLoading(false)
+      setIsExportingPdf(true)
+
       const [{ default: html2canvas }, { default: JsPdf }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
@@ -306,10 +322,13 @@ export default function WriteupDetailPage() {
         .replace(/(^-|-$)/g, "")
 
       pdf.save(`${slug || "writeup"}.pdf`)
+    } catch {
+      setIsCacheLoading(false)
+      setIsExportingPdf(false)
     } finally {
       setIsExportingPdf(false)
     }
-  }, [data, isExportingPdf, profile, toAbsoluteUrl])
+  }, [data, isExportingPdf, isCacheLoading, id, profile, toAbsoluteUrl, loadAndCacheProfile])
 
   if (isLoading) {
     return (
@@ -363,9 +382,11 @@ export default function WriteupDetailPage() {
               variant="outline"
               className="ml-auto border-primary/40 text-primary hover:bg-primary/10"
               onClick={() => void handleExportPdf()}
-              disabled={isExportingPdf}
+              disabled={isExportingPdf || isCacheLoading}
             >
-              {isExportingPdf ? (
+              {isCacheLoading ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading Cache...</>
+              ) : isExportingPdf ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Exporting PDF...</>
               ) : (
                 <><Download className="h-4 w-4 mr-2" /> Export as PDF</>
