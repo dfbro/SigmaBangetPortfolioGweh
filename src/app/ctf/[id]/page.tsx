@@ -541,6 +541,11 @@ export default function WriteupDetailPage() {
             <h2 className="mt-8 text-3xl font-semibold tracking-wide">
               {profile?.displayName || "Profile Name"}
             </h2>
+            {profile?.alias ? (
+              <p className="mt-2 text-base font-medium tracking-wide text-slate-300/75">
+                @{profile.alias}
+              </p>
+            ) : null}
             <div className="mt-5 rounded-2xl border border-white/20 bg-white/5 px-8 py-5 max-w-[680px] backdrop-blur-sm">
               <div className="flex items-center justify-center gap-5">
                 <a
